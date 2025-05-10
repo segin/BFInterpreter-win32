@@ -7,9 +7,7 @@
 #include <commdlg.h>  // For OpenFileName
 #include <stdarg.h>   // For va_list, va_start, va_end
 #include <dlgs.h>     // Include this for dialog styles like DS_RESIZE (though using WS_SIZEBOX/WS_THICKFRAME below)
-#include <commctrl.h> // Include for Common Controls
-
-#pragma comment(lib, "comctl32.lib") // Link Common Controls library
+#include <commctrl.h> // Include for Common Control
 
 // Define Control IDs
 #define IDC_STATIC_CODE     101
