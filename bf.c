@@ -120,7 +120,7 @@ volatile BOOL g_bInterpreterRunning = FALSE; // Flag to indicate if interpreter 
 HACCEL hAccelTable; // Handle to the accelerator table
 
 // Global debug settings flags (volatile for thread safety)
-volatile BOOL g_bDebugInterpreter = TRUE; // Default to TRUE
+volatile BOOL g_bDebugInterpreter = FALSE; // Default to FALSE
 volatile BOOL g_bDebugOutput = TRUE;      // Default to TRUE
 volatile BOOL g_bDebugBasic = TRUE;       // Default to TRUE
 
@@ -614,7 +614,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_INTERPRETER_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 20, 300, 20,        // Position and size (x, y, width, height)
+                20, 20, 400, 20,        // Position and size (x, y, width, height) - Increased width
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_INTERPRETER, // Control ID
                 hInst,                  // Instance handle
@@ -626,7 +626,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_OUTPUT_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 45, 300, 20,        // Position and size
+                20, 45, 400, 20,        // Position and size - Increased width
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_OUTPUT, // Control ID
                 hInst,                  // Instance handle
@@ -638,7 +638,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_BASIC_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 70, 300, 20,        // Position and size
+                20, 70, 400, 20,        // Position and size - Increased width
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_BASIC, // Control ID
                 hInst,                  // Instance handle
@@ -651,7 +651,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_OK_ANSI,         // Text
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, // Styles
-                80, 110, 75, 25,        // Position and size
+                140, 110, 75, 25,        // Position and size (Adjusted X position)
                 hwnd,                   // Parent window handle
                 (HMENU)IDOK,            // Control ID (predefined)
                 hInst,                  // Instance handle
@@ -663,7 +663,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_CANCEL_ANSI,     // Text
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, // Styles
-                160, 110, 75, 25,       // Position and size
+                220, 110, 75, 25,       // Position and size (Adjusted X position)
                 hwnd,                   // Parent window handle
                 (HMENU)IDCANCEL,        // Control ID (predefined)
                 hInst,                  // Instance handle
@@ -692,7 +692,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                     g_bDebugBasic = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
 
                     // Apply the rule: if basic is off, all are off
-                    if (!g_bDebugBasic) {
+                    if (!!g_bDebugBasic) { // Corrected logic: if basic is NOT checked
                         g_bDebugInterpreter = FALSE;
                         g_bDebugOutput = FALSE;
                     }
@@ -748,7 +748,8 @@ void ShowModalSettingsDialog(HWND hwndParent) {
         wc.hInstance       = hInst; // Use the global instance handle
         wc.lpszClassName = SETTINGS_DIALOG_CLASS_NAME_ANSI; // Use the new class name
         wc.hCursor         = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
+        // Use COLOR_BTNFACE + 1 for the standard dialog background color
+        wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
         // No lpszMenuName for a dialog
 
         DebugPrint("ShowModalSettingsDialog: Registering settings dialog class.\n");
@@ -1025,7 +1026,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     ofn.hwndOwner = hwnd;
                     ofn.lpstrFile = szFile;
                     ofn.nMaxFile = sizeof(szFile);
-                    // Filter for Brainfuck files (*.bf and *.b) and all files
+                    // Filter for Brainfuck files (*.bf, *.b) and all files
                     ofn.lpstrFilter = "Brainfuck Source Code (*.bf, *.b)\0*.bf;*.b\0All Files (*.*)\0*.*\0";
                     ofn.nFilterIndex = 1; // Default to the first filter (Brainfuck files)
                     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
@@ -1379,10 +1380,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_CTLCOLORSTATIC:
         {
              HDC hdcStatic = (HDC)wParam;
-             // Make label background transparent to match window background
-             SetBkMode(hdcStatic, TRANSPARENT);
-             // Return a NULL_BRUSH handle to prevent background painting
-             return (LRESULT)GetStockObject(NULL_BRUSH);
+             // Get the handle to the static control
+             HWND hwndStatic = (HWND)lParam;
+
+             // Check if this is a static control in the main window
+             if (GetParent(hwndStatic) == hwnd) {
+                 // Make label background transparent to match window background
+                 SetBkMode(hdcStatic, TRANSPARENT);
+                 // Return a NULL_BRUSH handle to prevent background painting
+                 return (LRESULT)GetStockObject(NULL_BRUSH);
+             } else {
+                 // For static controls in other windows (like the settings dialog),
+                 // let the default handling occur to get the standard dialog background.
+                 return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+             }
         }
         // Note: No 'break' needed after return
 
@@ -1493,7 +1504,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.lpfnWndProc     = WindowProc;
     wc.hInstance       = hInstance;
     wc.lpszClassName = MAIN_WINDOW_CLASS_NAME;
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
     wc.hCursor         = LoadCursor(NULL, IDC_ARROW);
     wc.lpszMenuName  = NULL; // We will create menu programmatically
 
