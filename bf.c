@@ -585,7 +585,7 @@ void ShowModalBlankDialog(HWND hwndParent) {
     MSG msg;
     DebugPrint("ShowModalBlankDialog: Entering modal message loop.\n");
     while (IsWindow(hDlg) && GetMessageA(&msg, NULL, 0, 0)) {
-        // Check if the message is for a dialog box. If so, let the dialog handle it.
+        // Check if the message is for this dialog box.
         // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
         if (!IsDialogMessage(hDlg, &msg)) {
             TranslateMessage(&msg);
@@ -647,8 +647,8 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width); // Use ternary operator instead of max
             int dlgW = required_content_width + margin * 2;
 
-            // Calculate required dialog height: Top margin + 3 checkboxes height + 2 checkbox spacings + button spacing + button height + Bottom margin
-            int dlgH = margin + (20 * 3) + (checkbox_spacing * 2) + button_spacing + button_height + margin;
+            // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
+            int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin;
 
 
             // Create checkboxes using WC_BUTTONA (Common Controls Button)
@@ -842,8 +842,8 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width); // Use ternary operator instead of max
     int dlgW = required_content_width + margin * 2;
 
-    // Calculate required dialog height: Top margin + 3 checkboxes height + 2 checkbox spacings + button spacing + button height + Bottom margin
-    int dlgH = margin + (20 * 3) + (checkbox_spacing * 2) + button_spacing + button_height + margin;
+    // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
+    int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin;
 
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
@@ -1656,7 +1656,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (hwnd == NULL)
     {
         DebugPrint("WinMain: Main window creation failed.\n");
-        MessageBoxA(NULL, STRING_WINDOW_REG_ERROR_ANSI, "Error", MB_ICONEXCLAMATION | MB_OK);
+        MessageBoxA(NULL, STRING_WINDOW_CREATION_ERROR_ANSI, "Error", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
     DebugPrint("WinMain: Main window created successfully.\n");
