@@ -752,8 +752,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 case IDM_FILE_SETTINGS:
                 {
-                    DebugPrint("WM_COMMAND: IDM_FILE_SETTINGS received. Attempting to show blank dialog.\n");
+                    DebugPrint("WM_COMMAND: IDM_FILE_SETTINGS received. Attempting to show message box.\n");
 
+                    // Commented out code to create dialog from memory
+                    /*
                     // --- Prepare data for the dialog template in memory ---
 
                     // Dialog Title (Wide Character)
@@ -944,67 +946,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                             // --- No control items added here for a blank dialog ---
                             // Commented out the ADD_CONTROL_ITEM macro calls:
-                            /*
-                            // Helper macro to add a control item
-                            #define ADD_CONTROL_ITEM(id, class_wide, text_wide, x, y, cx, cy, style, exStyle) \
-                            { \
-                                size_t current_offset_before_item = pCurrent - pGlobalTemplate; \
-                                // Align to ULONG_PTR before the item template structure \
-                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1)); \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u. Offset before item struct: %zu, Aligned offset: %zu (ULONG_PTR).\n", id, current_offset_before_item, pCurrent - pGlobalTemplate); \
-                                MY_DLGITEMTEMPLATEEX_WIDE item_template = { \
-                                    0, // helpID \
-                                    exStyle, \
-                                    style | WS_CHILD | WS_VISIBLE, \
-                                    x, y, cx, cy, \
-                                    (DWORD)id \
-                                }; \
-                                memcpy(pCurrent, &item_template, sizeof(MY_DLGITEMTEMPLATEEX_WIDE)); \
-                                pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE); \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied item template struct for ID %u. Size: %zu bytes. Current offset after struct: %zu\n", id, sizeof(MY_DLGITEMTEMPLATEEX_WIDE), pCurrent - pGlobalTemplate); \
-                                \
-                                // Copy Class Name (string) with WORD alignment \
-                                size_t current_offset_before_class = pCurrent - pGlobalTemplate; \
-                                size_t padding_before_class = ((sizeof(WORD) - 1) - ((ULONG_PTR)pCurrent % sizeof(WORD)) + (sizeof(WORD) - 1)) % (sizeof(WORD)); \
-                                pCurrent += padding_before_class; \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u. Offset before class: %zu, Padding added: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_class, padding_before_class, pCurrent - pGlobalTemplate); \
-                                LPWSTR pItemClass = (LPWSTR)pCurrent; \
-                                size_t item_class_len = wcslen(class_wide) + 1; \
-                                size_t item_class_size_bytes = item_class_len * sizeof(WCHAR); \
-                                memcpy(pItemClass, class_wide, item_class_size_bytes); \
-                                pCurrent += item_class_size_bytes; \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset after class: %zu\n", id, item_class_size_bytes, pCurrent - pGlobalTemplate); \
-                                \
-                                // Copy Title (string) with WORD alignment \
-                                size_t current_offset_before_text = pCurrent - pGlobalTemplate; \
-                                size_t padding_before_text = ((sizeof(WORD) - 1) - ((ULONG_PTR)pCurrent % sizeof(WORD)) + (sizeof(WORD) - 1)) % (sizeof(WORD)); \
-                                pCurrent += padding_before_text; \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u. Offset before text: %zu, Padding added: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_text, padding_before_text, pCurrent - pGlobalTemplate); \
-                                LPWSTR pItemText = (LPWSTR)pCurrent; \
-                                size_t item_text_len = wcslen(text_wide) + 1; \
-                                size_t item_text_size_bytes = item_text_len * sizeof(WCHAR); \
-                                memcpy(pItemText, text_wide, item_text_size_bytes); \
-                                pCurrent += item_text_size_bytes; \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset after text: %zu\n", id, item_text_size_bytes, pCurrent - pGlobalTemplate); \
-                                \
-                                // Creation Data (always 0 size for standard controls) with WORD alignment \
-                                size_t current_offset_before_creation = pCurrent - pGlobalTemplate; \
-                                size_t padding_before_creation = ((sizeof(WORD) - 1) - ((ULONG_PTR)pCurrent % sizeof(WORD)) + (sizeof(WORD) - 1)) % (sizeof(WORD)); \
-                                pCurrent += padding_before_creation; \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u. Offset before creation data size: %zu, Padding added: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_creation, padding_before_creation, pCurrent - pGlobalTemplate); \
-                                LPWORD pCreationDataSize = (LPWORD)pCurrent; \
-                                *pCreationDataSize = 0; // Size of creation data \
-                                pCurrent += sizeof(WORD); \
-                                DebugPrint("IDM_FILE_SETTINGS: Finished adding control ID %u. Current offset after creation data size: %zu\n", id, pCurrent - pGlobalTemplate); \
-                            }
-                            */
-
-                            // Add Checkboxes (Commented out)
+                            // #define ADD_CONTROL_ITEM(...) ...
                             // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_INTERPRETER, btn_class_wide, debug_interp_text_wide, 10, 10, 300, 20, BS_AUTOCHECKBOX, 0);
                             // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_OUTPUT, btn_class_wide, debug_output_text_wide, 10, 35, 300, 20, BS_AUTOCHECKBOX, 0);
                             // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_BASIC, btn_class_wide, debug_basic_text_wide, 10, 60, 300, 20, BS_AUTOCHECKBOX, 0);
-
-                            // Add Buttons (Commented out)
                             // ADD_CONTROL_ITEM(IDOK, btn_class_wide, ok_text_wide, 80, 100, 75, 25, BS_DEFPUSHBUTTON, 0);
                             // ADD_CONTROL_ITEM(IDCANCEL, btn_class_wide, cancel_text_wide, 160, 100, 75, 25, BS_PUSHBUTTON, 0);
 
@@ -1042,6 +987,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     free(ok_text_wide); // Not used, free
                     free(cancel_text_wide); // Not used, free
                     DebugPrint("IDM_FILE_SETTINGS: Freed wide string memory.\n");
+                    */
+
+                    // --- Replace with a simple MessageBoxA call ---
+                    MessageBoxA(hwnd, "Settings menu item clicked!", "Settings Test", MB_OK | MB_ICONINFORMATION);
+                    DebugPrint("IDM_FILE_SETTINGS: MessageBoxA displayed.\n");
 
 
                     DebugPrint("WM_COMMAND: Settings dialog process finished.\n");
