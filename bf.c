@@ -1021,7 +1021,7 @@ void ShowModalAboutDialog(HWND hwndParent) {
 
     // Center over parent
     RECT rcParent;
-    GetWindowRect(hwndParent, rcParent);
+    GetWindowRect(hwndParent, &rcParent); // Fix: Pass the address of rcParent
 
     // --- Calculate required dialog width and height before creating the window ---
     // This initial size is an estimate. The WM_CREATE handler will calculate the
