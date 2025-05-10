@@ -25,7 +25,7 @@
 #define IDM_FILE_RUN        201
 #define IDM_FILE_COPYOUTPUT 202
 #define IDM_FILE_EXIT       203
-#M_FILE_OPEN       204 // New menu ID for Open
+#define IDM_FILE_OPEN       204 // New menu ID for Open // Corrected typo here
 #define IDM_FILE_SETTINGS   205 // New menu ID for Settings
 #define IDM_FILE_CLEAROUTPUT 206 // New menu ID for Clear Output
 #define IDM_HELP_ABOUT      207 // New menu ID for About
@@ -806,7 +806,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
     if (!hDlg) {
         DebugPrint("ShowModalSettingsDialog: Failed to create settings dialog window. GetLastError: %lu\n", GetLastError());
-        MessageBoxA(hwndParent, "Failed to create settings dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
+        MessageBoxA(hwndParent, "Failed to register settings dialog class!", "Error", MB_ICONEXCLAMATION | MB_OK);
         EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
         return;
     }
