@@ -417,6 +417,52 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     return error_status; // Return status
 }
 
+// --- Dialog Template Structure ---
+// Define a simple dialog template structure in memory
+// This is a minimal template to get DialogBoxIndirect to create the dialog window.
+// Controls will still be created dynamically in WM_INITDIALOG.
+#pragma pack(push, 1) // Ensure byte alignment
+typedef struct {
+    WORD      dlgVer;
+    WORD      signature;
+    DWORD     helpID;
+    DWORD     exStyle;
+    DWORD     style;
+    WORD      cDlgItems;
+    short     x;
+    short     y;
+    short     cx;
+    short     cy;
+    // The title string and font information follow here, aligned on WORD boundaries.
+    // Since we are using DLGTEMPLATEEX, the title is a null-terminated WCHAR string
+    // followed by font information (WORD pointsize, BYTE weight, BYTE italic, WCHAR typeface).
+    // However, since we are using CreateWindowA for controls and setting the font manually,
+    // we only need the title string here. The DS_SETFONT style in the template
+    // indicates that font information *could* be present, but we don't need to provide it
+    // in the memory block if we're not using it. Just the title string is needed after the fixed part.
+} MY_DLGTEMPLATEEX;
+#pragma pack(pop)
+
+// Create a static instance of the dialog template
+// Note: This static instance only holds the fixed part of the template.
+// The title string and any other variable-length data are added dynamically to the allocated memory.
+MY_DLGTEMPLATEEX settings_dialog_template_fixed = {
+    0x0001, // dlgVer
+    0xFFFF, // signature (indicates DLGTEMPLATEEX)
+    0,      // helpID
+    0,      // exStyle
+    WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION | DS_SETFONT, // style (added DS_SETFONT)
+    0,      // cDlgItems (we add controls dynamically)
+    100,    // x (arbitrary position)
+    100,    // y (arbitrary position)
+    350,    // cx (width)
+    150,    // cy (height)
+    0       // wszText (placeholder - actual size determined by the string copied)
+};
+
+// The title string data (ANSI)
+const char settings_dialog_title_data[] = STRING_SETTINGS_TITLE_ANSI;
+
 
 // --- Settings Dialog Procedure ---
 INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -712,11 +758,75 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDM_FILE_SETTINGS:
                 {
                     DebugPrint("WM_COMMAND: IDM_FILE_SETTINGS received. Attempting to show dialog.\n");
-                    // Show the settings dialog
-                    // The second parameter (lpTemplateName) is NULL for dynamic dialogs
-                    INT_PTR dialog_result = DialogBox(hInst, NULL, hwnd, SettingsDialogProc);
-                    DebugPrint("WM_COMMAND: DialogBox returned %Id.\n", dialog_result);
-                    DebugPrint("WM_COMMAND: Settings dialog closed.\n");
+
+                    // Calculate the required size for the template in memory
+                    // Size of the base structure
+                    size_t template_base_size = sizeof(MY_DLGTEMPLATEEX);
+                    // Size of the title string including null terminator
+                    size_t title_string_size = strlen(settings_dialog_title_data) + 1;
+
+                    // Calculate total required size. The title string follows the fixed part.
+                    // Ensure the total size is DWORD aligned as required by DialogBoxIndirect.
+                    size_t total_template_size = template_base_size + title_string_size;
+                    total_template_size = (total_template_size + 3) & ~3;
+
+                    DebugPrint("IDM_FILE_SETTINGS: Calculated total template size: %zu\n", total_template_size);
+
+                    // Allocate memory for the combined template and title
+                    HGLOBAL hGlobalTemplate = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, total_template_size);
+                    DebugPrint("IDM_FILE_SETTINGS: GlobalAlloc returned %p\n", hGlobalTemplate);
+
+                    if (hGlobalTemplate) {
+                        LPBYTE pGlobalTemplate = (LPBYTE)GlobalLock(hGlobalTemplate);
+                        DebugPrint("IDM_FILE_SETTINGS: GlobalLock returned %p\n", pGlobalTemplate);
+
+                        if (pGlobalTemplate) {
+                            // Copy the template structure
+                            memcpy(pGlobalTemplate, &settings_dialog_template_fixed, sizeof(MY_DLGTEMPLATEEX));
+                            DebugPrint("IDM_FILE_SETTINGS: Copied template structure.\n");
+
+                            // Calculate the address to copy the title string to, ensuring WORD alignment
+                            LPBYTE pCurrent = pGlobalTemplate + sizeof(MY_DLGTEMPLATEEX);
+                            // Ensure WORD alignment for the string data
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + 1) & ~1);
+
+                            DebugPrint("IDM_FILE_SETTINGS: Title string address after alignment: %p\n", pCurrent);
+
+                            // Copy the title string
+                            memcpy(pCurrent, settings_dialog_title_data, title_string_size);
+                            DebugPrint("IDM_FILE_SETTINGS: Copied title string.\n");
+
+                            // Note: If we were including font information (DS_SETFONT),
+                            // it would follow the title string, also WORD-aligned.
+                            // We would copy the font point size (WORD), weight (BYTE), italic (BYTE),
+                            // and typeface string (null-terminated WCHAR).
+                            // Since we are not providing font info in the memory template,
+                            // the template ends after the title string (with DWORD alignment).
+
+                            GlobalUnlock(hGlobalTemplate);
+                            DebugPrint("IDM_FILE_SETTINGS: GlobalUnlock called.\n");
+
+                            // Call DialogBoxIndirect with the memory handle
+                            DebugPrint("IDM_FILE_SETTINGS: Calling DialogBoxIndirect...\n");
+                            INT_PTR dialog_result = DialogBoxIndirect(hInst, (LPCDLGTEMPLATE)hGlobalTemplate, hwnd, SettingsDialogProc);
+                            DebugPrint("IDM_FILE_SETTINGS: DialogBoxIndirect returned %Id.\n", dialog_result);
+
+
+                            if (dialog_result == -1) {
+                                DebugPrint("IDM_FILE_SETTINGS: GetLastError after DialogBoxIndirect: %lu\n", GetLastError());
+                            }
+
+                            DebugPrint("IDM_FILE_SETTINGS: Freeing global memory.\n");
+                            GlobalFree(hGlobalTemplate); // Free the allocated memory
+
+                        } else {
+                            DebugPrint("IDM_FILE_SETTINGS: GlobalLock failed for dialog template. GetLastError: %lu\n", GetLastError());
+                        }
+                    } else {
+                        DebugPrint("IDM_FILE_SETTINGS: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
+                    }
+
+                    DebugPrint("WM_COMMAND: Settings dialog process finished.\n");
                     break;
                 }
 
@@ -1133,3 +1243,4 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     DebugPrint("WinMain finished.\n");
     return (int)msg.wParam;
 }
+
