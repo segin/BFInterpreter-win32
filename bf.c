@@ -6,6 +6,7 @@
 #include <string.h>   // For memset, strlen, strcpy, etc.
 #include <commdlg.h>  // For OpenFileName
 #include <stdarg.h>   // For va_list, va_start, va_end
+#include <dlgs.h>     // Include this for dialog styles like DS_RESIZE
 
 // Define Control IDs
 #define IDC_STATIC_CODE     101
@@ -783,7 +784,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             {
                                 char* fileContent = (char*)malloc(fileSize + 1);
                                 if (fileContent)
-                                {
+                                0{
                                     DWORD bytesRead;
                                     if (ReadFile(hFile, fileContent, fileSize, &bytesRead, NULL))
                                     {
@@ -1409,7 +1410,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                         } else {
                             DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalLock failed for dialog template. GetLastError: %lu\n", GetLastError());
-                            MessageBoxA(hwnd, "Failed to lock memory for dialog template!", "Error", MB_ICONERROR);
+                            MessageBoxA(hwnd, "Failed to lock memory for dialog template!", "Error", MB_OK | MB_ICONERROR);
                         }
                     } else {
                         DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
@@ -1456,7 +1457,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
              // Check if the message is for the output edit control
              if ((HWND)lParam == hwndOutputEdit) {
                 // If it is, allow it. This is needed for selection to work.
-                DebugPrint("WindowProc: Allowing mouse down message %u for output edit control (for selection).\n", uMsg);
+                DebugPrint("WindowProc: Allowing mouse down message %u for output edit control (for selection).\n");
                 return DefWindowProcA(hwnd, uMsg, wParam, lParam);
             }
              // Otherwise, let the default window procedure handle it
