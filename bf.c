@@ -47,6 +47,9 @@
 // Removed IDC_DUMMY_CHECKBOX 501
 // Removed IDC_BLANK_DIALOG_DISMISS 502
 
+// Define Dialog Control IDs for About Dialog
+#define IDC_STATIC_ABOUT_TEXT 601 // Defined the missing control ID
+
 
 // --- Custom Messages for Thread Communication (ANSI versions) ---
 // Message to append a character to output. wParam = character, lParam = 0. (No longer used with buffering)
@@ -505,16 +508,16 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 STRING_DEBUG_OUTPUT_ANSI
             };
 
-            int maxTextWidth = 0;
+            int max_text_width = 0; // Corrected variable name
             SIZE size;
             for (int i = 0; i < 3; i++) {
                 GetTextExtentPoint32A(hdc, texts[i], strlen(texts[i]), &size);
-                if (size.cx > maxTextWidth) maxTextWidth = size.cx;
+                if (size.cx > max_text_width) max_text_width = size.cx; // Corrected variable name
             }
 
             // Calculate control dimensions
             // Add padding for the checkbox square, text spacing, and right margin within the control
-            int checkbox_control_width = maxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8; // Increased padding slightly
+            int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8; // Increased padding slightly
             // Added a small buffer (+15) for safety against truncation (increased buffer)
             checkbox_control_width += 15;
 
@@ -752,7 +755,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     GetTextExtentPoint32A(hdc, STRING_DEBUG_OUTPUT_ANSI, strlen(STRING_DEBUG_OUTPUT_ANSI), &size);
     if (size.cx > max_text_width) max_text_width = size.cx;
     GetTextExtentPoint32A(hdc, STRING_DEBUG_BASIC_ANSI, strlen(STRING_DEBUG_BASIC_ANSI), &size);
-    if (size.cx > max_text_width) maxTextWidth = size.cx;
+    if (size.cx > max_text_width) max_text_width = size.cx;
 
     SelectObject(hdc, hOldFont);
     ReleaseDC(NULL, hdc); // Release screen DC
@@ -880,7 +883,7 @@ LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
                 WS_CHILD | WS_VISIBLE | SS_CENTER, // Styles (SS_CENTER for centered text)
                 margin, margin, dlgW - 2 * margin, textSize.cy, // Position and size
                 hwnd,                   // Parent window handle
-                (HMENU)IDC_STATIC_ABOUT_TEXT, // Control ID
+                (HMENU)IDC_STATIC_ABOUT_TEXT, // Control ID // Corrected ID
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
