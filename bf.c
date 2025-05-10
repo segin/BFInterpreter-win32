@@ -484,16 +484,17 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             if (hCheckOutput) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
             if (hCheckBasic) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
 
-            // Apply the monospaced font to controls if needed (though dialog controls usually inherit)
-            // if (hMonoFont) {
-            //     if (hCheckInterpreter) SendMessage(hCheckInterpreter, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-            //     if (hCheckOutput) SendMessage(hCheckOutput, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-            //     if (hCheckBasic) SendMessage(hCheckBasic, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-            //     if (hBtnOK) SendMessage(hBtnOK, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-            //     if (hBtnCancel) SendMessage(hDlg, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to dialog itself too? No, usually controls inherit.
-            // }
+            // Apply the rule: if basic is off, all are off
+            if (!g_bDebugBasic) {
+                g_bDebugInterpreter = FALSE;
+                g_bDebugOutput = FALSE;
+            }
+            // Corrected typo here: g_bInterpreter -> g_bDebugInterpreter
+            DebugPrint("SettingsDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
 
-            return (INT_PTR)TRUE; // Return TRUE to set the keyboard focus
+
+            EndDialog(hDlg, LOWORD(wParam)); // Close the dialog
+            return (INT_PTR)TRUE;
         case WM_COMMAND:
         { // Added braces to create a new scope
             DebugPrint("SettingsDialogProc: WM_COMMAND received. LOWORD(wParam): %u, HIWORD(wParam): %u, lParam: %p\n", LOWORD(wParam), HIWORD(wParam), (void*)lParam);
@@ -1018,7 +1019,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 \
                                 /* Creation Data (always 0 size for standard controls) */ \
                                 size_t current_offset_before_creation = pCurrent - pGlobalTemplate; \
-                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for creation data size */ \
+                                /* Ensure WORD alignment before writing the creation data size */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); \
                                 DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u. Offset before creation data size: %zu, Aligned offset: %zu.\n", id, current_offset_before_creation, pCurrent - pGlobalTemplate); \
                                 LPWORD pCreationDataSize = (LPWORD)pCurrent; \
                                 *pCreationDataSize = 0; /* Size of creation data */ \
