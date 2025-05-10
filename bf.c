@@ -609,12 +609,37 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     switch (uMsg) {
         case WM_CREATE:
             DebugPrint("SettingsModalDialogProc: WM_CREATE received.\n");
-            // Create checkboxes
+
+            // Calculate the required width for the longest checkbox text
+            int max_text_width = 0;
+            HDC hdc = GetDC(hwnd);
+            HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+            if (hFont == NULL) {
+                 // If no font is set, get the system font
+                 hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            }
+            HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+
+            SIZE size;
+            GetTextExtentPoint32A(hdc, STRING_DEBUG_INTERPRETER_ANSI, strlen(STRING_DEBUG_INTERPRETER_ANSI), &size);
+            if (size.cx > max_text_width) max_text_width = size.cx;
+            GetTextExtentPoint32A(hdc, STRING_DEBUG_OUTPUT_ANSI, strlen(STRING_DEBUG_OUTPUT_ANSI), &size);
+            if (size.cx > max_text_width) max_text_width = size.cx;
+            GetTextExtentPoint32A(hdc, STRING_DEBUG_BASIC_ANSI, strlen(STRING_DEBUG_BASIC_ANSI), &size);
+            if (size.cx > max_text_width) max_text_width = size.cx;
+
+            SelectObject(hdc, hOldFont);
+            ReleaseDC(hwnd, hdc);
+
+            // Add some padding for the checkbox square and margin
+            int checkbox_width = max_text_width + 20; // Add ~20 pixels for the checkbox square and spacing
+
+            // Create checkboxes with calculated width
             CreateWindowA(
                 "BUTTON",               // Class name
                 STRING_DEBUG_INTERPRETER_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 20, 400, 20,        // Position and size (x, y, width, height) - Increased width
+                20, 20, checkbox_width, 20,        // Position and size (x, y, width, height)
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_INTERPRETER, // Control ID
                 hInst,                  // Instance handle
@@ -626,7 +651,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_OUTPUT_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 45, 400, 20,        // Position and size - Increased width
+                20, 45, checkbox_width, 20,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_OUTPUT, // Control ID
                 hInst,                  // Instance handle
@@ -638,7 +663,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_BASIC_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 70, 400, 20,        // Position and size - Increased width
+                20, 70, checkbox_width, 20,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_BASIC, // Control ID
                 hInst,                  // Instance handle
@@ -651,7 +676,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_OK_ANSI,         // Text
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, // Styles
-                140, 110, 75, 25,        // Position and size (Adjusted X position)
+                80, 110, 75, 25,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDOK,            // Control ID (predefined)
                 hInst,                  // Instance handle
@@ -663,7 +688,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_CANCEL_ANSI,     // Text
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, // Styles
-                220, 110, 75, 25,       // Position and size (Adjusted X position)
+                160, 110, 75, 25,       // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDCANCEL,        // Control ID (predefined)
                 hInst,                  // Instance handle
@@ -692,7 +717,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                     g_bDebugBasic = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
 
                     // Apply the rule: if basic is off, all are off
-                    if (!!g_bDebugBasic) { // Corrected logic: if basic is NOT checked
+                    if (!g_bDebugBasic) {
                         g_bDebugInterpreter = FALSE;
                         g_bDebugOutput = FALSE;
                     }
@@ -748,8 +773,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
         wc.hInstance       = hInst; // Use the global instance handle
         wc.lpszClassName = SETTINGS_DIALOG_CLASS_NAME_ANSI; // Use the new class name
         wc.hCursor         = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
-        // Use COLOR_BTNFACE + 1 for the standard dialog background color
-        wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
         // No lpszMenuName for a dialog
 
         DebugPrint("ShowModalSettingsDialog: Registering settings dialog class.\n");
@@ -766,11 +790,48 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     // Center over parent
     RECT rcParent;
     GetWindowRect(hwndParent, &rcParent);
-    // Adjusted dialog size to accommodate longer text and buttons
-    int dlgW = 450, dlgH = 180; // Dialog size (adjusted for controls)
+
+    // Calculate required dialog width based on control sizes
+    // This is a simplified calculation; a more robust solution would measure control text at runtime.
+    // Assuming checkbox text width + margin + button width + spacing + margin
+    int margin = 20; // Margin around controls
+    int checkbox_spacing = 25; // Vertical space between checkboxes
+    int button_width = 75;
+    int button_spacing = 10;
+    int checkbox_x = 20; // X position of checkboxes
+
+    // Estimate max checkbox text width (a more accurate way would involve GetTextExtentPoint32)
+    int estimated_max_text_width = 0;
+    if (strlen(STRING_DEBUG_INTERPRETER_ANSI) > estimated_max_text_width) estimated_max_text_width = strlen(STRING_DEBUG_INTERPRETER_ANSI);
+    if (strlen(STRING_DEBUG_OUTPUT_ANSI) > estimated_max_text_width) estimated_max_text_width = strlen(STRING_DEBUG_OUTPUT_ANSI);
+    if (strlen(STRING_DEBUG_BASIC_ANSI) > estimated_max_text_width) estimated_max_text_width = strlen(STRING_DEBUG_BASIC_ANSI);
+
+    // Rough estimate of checkbox width needed (text length * average char width + checkbox square + padding)
+    // This is a very rough estimate; GetTextExtentPoint32 is better but more complex here.
+    int estimated_checkbox_control_width = estimated_max_text_width * 8 + 20; // Assuming ~8 pixels per char + padding
+
+    // Calculate required dialog width: Left margin + checkbox width + spacing + OK button width + spacing + Cancel button width + Right margin
+    // This calculation needs refinement based on actual control positions and sizes in WM_CREATE.
+    // Let's use fixed positions for simplicity and ensure the dialog is wide enough.
+    // Checkboxes are at x=20. OK button is at x=80, Cancel at x=160.
+    // The rightmost control edge is Cancel button right edge: 160 + 75 = 235
+    // Add right margin: 235 + 20 = 255
+    // This doesn't account for the *text* width of the checkboxes properly.
+
+    // Let's recalculate based on the control positions in WM_CREATE:
+    // Checkboxes start at x=20. Their width is set to 300. Right edge at 20 + 300 = 320.
+    // OK button starts at x=80, width 75. Right edge at 80 + 75 = 155.
+    // Cancel button starts at x=160, width 75. Right edge at 160 + 75 = 235.
+    // The rightmost element is the checkbox at 320.
+    // Add a right margin of 20. Required width = 320 + 20 = 340.
+    // Let's make it a bit wider to be safe and for button spacing.
+    int dlgW = 400; // Adjusted dialog width
+    int dlgH = 180; // Dialog height remains the same
+
+
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
     int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-     DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d).\n", x, y);
+     DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d) and size (%d, %d).\n", x, y, dlgW, dlgH);
 
 
     // Create the modal dialog window
@@ -836,6 +897,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             DebugPrint("WM_CREATE received.\n");
             // --- Create Monospaced Font ---
+            // This font is specifically for the EDIT controls (code, input, output)
             hMonoFont = CreateFontA(
                 16,                     // Height
                 0,                      // Width (auto)
@@ -883,6 +945,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             // --- Create Controls ---
             // Labels (STATIC)
+            // These will use the default system font
             CreateWindowA("STATIC", STRING_CODE_HELP_ANSI, WS_CHILD | WS_VISIBLE,
                           10, 10, 100, 20, hwnd, (HMENU)IDC_STATIC_CODE, hInst, NULL);
             CreateWindowA("STATIC", STRING_INPUT_HELP_ANSI, WS_CHILD | WS_VISIBLE,
@@ -891,23 +954,34 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                           10, 300, 150, 20, hwnd, (HMENU)IDC_STATIC_OUTPUT, hInst, NULL);
 
             // Edit Controls (EDIT)
-            // Code Input
+            // Code Input - Apply monospaced font
             hwndCodeEdit = CreateWindowExA(
                 WS_EX_CLIENTEDGE, "EDIT", "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 35, 560, 125, hwnd, (HMENU)IDC_EDIT_CODE, hInst, NULL);
+            if (hMonoFont) {
+                SendMessageA(hwndCodeEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            }
 
-            // Standard Input
+
+            // Standard Input - Apply monospaced font
             hwndInputEdit = CreateWindowExA(
                 WS_EX_CLIENTEDGE, "EDIT", "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
+            if (hMonoFont) {
+                SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            }
 
-            // Standard Output (Edit control without ES_READONLY, input blocked manually)
+            // Standard Output (Edit control without ES_READONLY, input blocked manually) - Apply monospaced font
             hwndOutputEdit = CreateWindowExA(
                 WS_EX_CLIENTEDGE, "EDIT", "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL, // Removed ES_READONLY
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL); // Reverted to IDC_EDIT_OUTPUT
+            if (hMonoFont) {
+                SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to edit control
+            }
+
 
             // New Window Button (positioned in the top-right)
             // Get client rectangle to position relative to window size
@@ -933,12 +1007,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowTextA(hwndInputEdit, STRING_INPUT_TEXT_ANSI);
             SetWindowTextA(hwndOutputEdit, ""); // Set text for the edit control
 
-            // Apply the monospaced font to all EDIT controls
-            if (hMonoFont) {
-                SendMessageA(hwndCodeEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-                SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-                SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to edit control
-            }
+            // The monospaced font is applied to the edit controls above.
+            // Other controls (labels, buttons) will use the system default font automatically.
 
             SetFocus(hwndCodeEdit);
             break; // End of WM_CREATE
@@ -1026,7 +1096,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     ofn.hwndOwner = hwnd;
                     ofn.lpstrFile = szFile;
                     ofn.nMaxFile = sizeof(szFile);
-                    // Filter for Brainfuck files (*.bf, *.b) and all files
+                    // Filter for Brainfuck files (*.bf and *.b) and all files
                     ofn.lpstrFilter = "Brainfuck Source Code (*.bf, *.b)\0*.bf;*.b\0All Files (*.*)\0*.*\0";
                     ofn.nFilterIndex = 1; // Default to the first filter (Brainfuck files)
                     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
@@ -1380,20 +1450,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_CTLCOLORSTATIC:
         {
              HDC hdcStatic = (HDC)wParam;
-             // Get the handle to the static control
-             HWND hwndStatic = (HWND)lParam;
-
-             // Check if this is a static control in the main window
-             if (GetParent(hwndStatic) == hwnd) {
-                 // Make label background transparent to match window background
-                 SetBkMode(hdcStatic, TRANSPARENT);
-                 // Return a NULL_BRUSH handle to prevent background painting
-                 return (LRESULT)GetStockObject(NULL_BRUSH);
-             } else {
-                 // For static controls in other windows (like the settings dialog),
-                 // let the default handling occur to get the standard dialog background.
-                 return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-             }
+             // Make label background transparent to match window background
+             SetBkMode(hdcStatic, TRANSPARENT);
+             // Return a NULL_BRUSH handle to prevent background painting
+             return (LRESULT)GetStockObject(NULL_BRUSH);
         }
         // Note: No 'break' needed after return
 
@@ -1504,7 +1564,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.lpfnWndProc     = WindowProc;
     wc.hInstance       = hInstance;
     wc.lpszClassName = MAIN_WINDOW_CLASS_NAME;
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background brush for 3D look
     wc.hCursor         = LoadCursor(NULL, IDC_ARROW);
     wc.lpszMenuName  = NULL; // We will create menu programmatically
 
@@ -1552,7 +1612,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         0,                                  // Optional window styles.
         MAIN_WINDOW_CLASS_NAME,             // Window class (ANSI)
         WINDOW_TITLE_ANSI,                  // Window title (ANSI)
-        WS_OVERLAPPEDWINDOW,                // Window style
+        WS_OVERLAPPEDWINDOW,                // Window style (includes WS_CAPTION, WS_SYSMENU, WS_THICKFRAME, WS_MINIMIZEBOX, WS_MAXIMIZEBOX)
 
         // Size and position
         CW_USEDEFAULT, CW_USEDEFAULT, 600, 550,
