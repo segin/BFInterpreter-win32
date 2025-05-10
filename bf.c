@@ -900,20 +900,69 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // Total size = header size + (number of controls * aligned control item size) + total control data size
                     // Each DLGITEMTEMPLATEEX must be DWORD aligned.
                     size_t total_controls = 5; // 3 checkboxes + 2 buttons
-                    size_t total_control_items_aligned_size = 0;
-                    for (size_t i = 0; i < total_controls; ++i) {
-                         total_control_items_aligned_size += (sizeof(MY_DLGITEMTEMPLATEEX_WIDE) + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
-                    }
+                    // The size of each item template structure itself is fixed, but it must be preceded by ULONG_PTR alignment.
+                    // The data following the item template (class name, title, creation data) has its own WORD alignment requirements.
+                    size_t total_template_size = header_size;
 
+                    // Calculate size for each control item template and its data, including alignment before each item
+                    size_t current_offset = header_size; // Start after the dialog header
 
-                    size_t total_template_size = header_size + total_control_items_aligned_size + control_data_total_size;
+                     // Add Checkboxes
+                    // Checkbox 1
+                    current_offset = (current_offset + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1); // Align for item template struct
+                    current_offset += sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class name
+                    current_offset += btn_class_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    current_offset += debug_interp_text_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for creation data size
+                    current_offset += sizeof(WORD); // Creation data size (0)
 
-                    // Ensure the final size is DWORD aligned
-                    total_template_size = (total_template_size + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
+                    // Checkbox 2
+                    current_offset = (current_offset + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1); // Align for item template struct
+                    current_offset += sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class name
+                    current_offset += btn_class_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    current_offset += debug_output_text_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for creation data size
+                    current_offset += sizeof(WORD); // Creation data size (0)
+
+                    // Checkbox 3
+                    current_offset = (current_offset + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1); // Align for item template struct
+                    current_offset += sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class name
+                    current_offset += btn_class_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    current_offset += debug_basic_text_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for creation data size
+                    current_offset += sizeof(WORD); // Creation data size (0)
+
+                    // OK Button
+                    current_offset = (current_offset + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1); // Align for item template struct
+                    current_offset += sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class name
+                    current_offset += btn_class_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    current_offset += ok_text_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for creation data size
+                    current_offset += sizeof(WORD); // Creation data size (0)
+
+                    // Cancel Button
+                    current_offset = (current_offset + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1); // Align for item template struct
+                    current_offset += sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class name
+                    current_offset += btn_class_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    current_offset += cancel_text_size_wide;
+                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for creation data size
+                    current_offset += sizeof(WORD); // Creation data size (0)
+
+                    total_template_size = current_offset; // The total size is the final offset
 
 
                     DebugPrint("IDM_FILE_SETTINGS: Calculated total template size: %zu\n", total_template_size);
-                    DebugPrint("IDM_FILE_SETTINGS: Header size: %zu, Total control items aligned size: %zu, Total control data size: %zu\n", header_size, total_control_items_aligned_size, control_data_total_size);
+                    DebugPrint("IDM_FILE_SETTINGS: Header size: %zu\n", header_size);
 
 
                     // Allocate memory for the combined template and data
@@ -982,8 +1031,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             #define ADD_CONTROL_ITEM(id, class_wide, text_wide, x, y, cx, cy, style, exStyle) \
                             { \
                                 size_t current_offset_before_item = pCurrent - pGlobalTemplate; \
-                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1)); /* DWORD align for item template struct */ \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u. Offset before item struct: %zu, Aligned offset: %zu.\n", id, current_offset_before_item, pCurrent - pGlobalTemplate); \
+                                /* Align to ULONG_PTR before the item template structure */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1)); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u. Offset before item struct: %zu, Aligned offset: %zu (ULONG_PTR).\n", id, current_offset_before_item, pCurrent - pGlobalTemplate); \
                                 MY_DLGITEMTEMPLATEEX_WIDE item_template = { \
                                     0, /* helpID */ \
                                     exStyle, \
@@ -998,7 +1048,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 /* Copy Class Name (string) */ \
                                 size_t current_offset_before_class = pCurrent - pGlobalTemplate; \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for class name */ \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u. Offset before class: %zu, Aligned offset: %zu.\n", id, current_offset_before_class, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u. Offset before class: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_class, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemClass = (LPWSTR)pCurrent; \
                                 size_t item_class_len = wcslen(class_wide) + 1; \
                                 size_t item_class_size_bytes = item_class_len * sizeof(WCHAR); \
@@ -1009,7 +1059,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 /* Copy Title (string) */ \
                                 size_t current_offset_before_text = pCurrent - pGlobalTemplate; \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for title */ \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u. Offset before text: %zu, Aligned offset: %zu.\n", id, current_offset_before_text, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u. Offset before text: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_text, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemText = (LPWSTR)pCurrent; \
                                 size_t item_text_len = wcslen(text_wide) + 1; \
                                 size_t item_text_size_bytes = item_text_len * sizeof(WCHAR); \
@@ -1021,7 +1071,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 size_t current_offset_before_creation = pCurrent - pGlobalTemplate; \
                                 /* Ensure WORD alignment before writing the creation data size */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u. Offset before creation data size: %zu, Aligned offset: %zu.\n", id, current_offset_before_creation, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u. Offset before creation data size: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_creation, pCurrent - pGlobalTemplate); \
                                 LPWORD pCreationDataSize = (LPWORD)pCurrent; \
                                 *pCreationDataSize = 0; /* Size of creation data */ \
                                 pCurrent += sizeof(WORD); \
