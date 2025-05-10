@@ -49,6 +49,9 @@
 // New Control ID for the dismiss button in the new modal window (reused for blank dialog)
 #define IDC_BLANK_DIALOG_DISMISS 502
 
+// Define Dialog Control IDs for About Dialog
+#define IDC_STATIC_ABOUT_TEXT 601
+
 
 // --- Custom Messages for Thread Communication (ANSI versions) ---
 // Message to append a character to output. wParam = character, lParam = 0. (No longer used with buffering)
@@ -107,6 +110,8 @@
 #define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass" // New window class name for the settings dialog
 #define STRING_ABOUT_TITLE_ANSI "About Win32 BF Interpreter" // Title for the About box
 #define STRING_ABOUT_TEXT_ANSI "Win32 Brainfuck Interpreter\r\nVersion 1.0\r\nCreated by [Your Name or Placeholder]\r\n\r\nSimple interpreter with basic features." // Text for the About box
+#define ABOUT_DIALOG_CLASS_NAME_ANSI "AboutDialogClass" // New window class name for the about dialog
+
 
 // Registry Constants
 #define REG_COMPANY_KEY_ANSI "Software\\Talamar Developments"
@@ -144,6 +149,11 @@ void ShowModalBlankDialog(HWND hwndParent);
 LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the function to show the settings modal dialog
 void ShowModalSettingsDialog(HWND hwndParent);
+// Forward declaration of the about modal dialog procedure
+LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+// Forward declaration of the function to show the about modal dialog
+void ShowModalAboutDialog(HWND hwndParent);
+
 
 // Forward declarations for Registry functions
 void SaveDebugSettingsToRegistry();
@@ -983,6 +993,234 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     DebugPrint("ShowModalSettingsDialog finished.\n");
 }
 
+// --- About Modal Dialog Procedure ---
+LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_CREATE:
+        {
+            DebugPrint("AboutModalDialogProc: WM_CREATE received.\n");
+            // Set dialog font first
+            SendMessage(hwnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+            DebugPrint("AboutModalDialogProc: Applied DEFAULT_GUI_FONT to dialog.\n");
+
+            HDC hdc = GetDC(hwnd);
+            HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0); // Get the font actually used by the dialog
+            HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+
+            // Define dimensions and spacing
+            const int margin = 20;
+            const int button_width = 75;
+            const int button_height = 25;
+            const int button_spacing = 15;
+
+            // Calculate required size for the static text control
+            SIZE textSize;
+            GetTextExtentPoint32A(hdc, STRING_ABOUT_TEXT_ANSI, strlen(STRING_ABOUT_TEXT_ANSI), &textSize);
+
+            // Calculate dialog width and height
+            // Width: Max of text width and button width + margins
+            int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
+             // Add padding/buffer
+            int dlgW = required_content_width + margin * 2 + 20; // Increased buffer slightly
+
+            // Height: Top margin + text height + spacing + button height + bottom margin
+            int dlgH = margin + textSize.cy + button_spacing + button_height + margin + 10; // Added buffer slightly
+
+
+            // Create Static Text control
+            CreateWindowA(
+                "STATIC",               // Class name
+                STRING_ABOUT_TEXT_ANSI, // Text
+                WS_CHILD | WS_VISIBLE | SS_CENTER, // Styles (SS_CENTER for centered text)
+                margin, margin, dlgW - 2 * margin, textSize.cy, // Position and size
+                hwnd,                   // Parent window handle
+                (HMENU)IDC_STATIC_ABOUT_TEXT, // Control ID
+                hInst,                  // Instance handle
+                NULL                    // Additional application data
+            );
+            DebugPrint("AboutModalDialogProc: Static text control created.\n");
+
+            // Calculate button position to be centered below text
+            int ok_button_x = margin + (dlgW - 2 * margin - button_width) / 2;
+
+
+            // Create OK button
+            CreateWindowA(
+                "BUTTON",               // Class name
+                STRING_OK_ANSI,         // Text
+                WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, // Styles (BS_DEFPUSHBUTTON makes it the default button)
+                ok_button_x, margin + textSize.cy + button_spacing, button_width, button_height, // Position and size
+                hwnd,                   // Parent window handle
+                (HMENU)IDOK,            // Control ID (predefined)
+                hInst,                  // Instance handle
+                NULL                    // Additional application data
+            );
+            DebugPrint("AboutModalDialogProc: OK button created.\n");
+
+            // Resize the dialog window to fit the calculated size
+            SetWindowPos(hwnd, NULL, 0, 0, dlgW, dlgH, SWP_NOMOVE | SWP_NOZORDER);
+            DebugPrint("AboutModalDialogProc: Dialog resized to (%d, %d).\n", dlgW, dlgH);
+
+
+            SelectObject(hdc, hOldFont);
+            ReleaseDC(hwnd, hdc);
+
+            break;
+        }
+
+        case WM_COMMAND:
+        { // Added braces for scope
+            DebugPrint("AboutModalDialogProc: WM_COMMAND received.\n");
+            int wmId = LOWORD(wParam);
+            switch (wmId) {
+                case IDOK:
+                    DebugPrint("AboutModalDialogProc: IDOK received. Destroying dialog.\n");
+                    DestroyWindow(hwnd); // Close the dialog
+                    break;
+            }
+            break; // End of WM_COMMAND
+        }
+
+        case WM_CLOSE:
+            DebugPrint("AboutModalDialogProc: WM_CLOSE received.\n");
+            DestroyWindow(hwnd); // Treat closing via system menu as closing the dialog
+            break;
+
+        case WM_DESTROY:
+            DebugPrint("AboutModalDialogProc: WM_DESTROY received.\n");
+            // No specific cleanup needed for controls
+            break;
+
+        default:
+            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+    }
+    return 0;
+}
+
+// --- Function to show the about modal dialog ---
+void ShowModalAboutDialog(HWND hwndParent) {
+    DebugPrint("ShowModalAboutDialog called.\n");
+    // Disable parent window
+    EnableWindow(hwndParent, FALSE);
+    DebugPrint("ShowModalAboutDialog: Parent window disabled.\n");
+
+    // Register dialog class once
+    static BOOL registered = FALSE;
+    if (!registered) {
+        WNDCLASSA wc = {0};
+        wc.lpfnWndProc     = AboutModalDialogProc; // Use the about modal dialog procedure
+        wc.hInstance       = hInst; // Use the global instance handle
+        wc.lpszClassName = ABOUT_DIALOG_CLASS_NAME_ANSI; // Use the new class name
+        wc.hCursor         = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
+        // No lpszMenuName for a dialog
+
+        DebugPrint("ShowModalAboutDialog: Registering about dialog class.\n");
+        if (!RegisterClassA(&wc)) {
+            DebugPrint("ShowModalAboutDialog: About dialog registration failed. GetLastError: %lu\n", GetLastError());
+            MessageBoxA(hwndParent, "Failed to register about dialog class!", "Error", MB_ICONEXCLAMATION | MB_OK);
+            EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
+            return;
+        }
+        registered = TRUE;
+        DebugPrint("ShowModalAboutDialog: About dialog class registered successfully.\n");
+    }
+
+    // Center over parent
+    RECT rcParent;
+    GetWindowRect(hwndParent, &rcParent);
+
+    // --- Calculate required dialog width and height before creating the window ---
+    // This ensures the window is created with the correct initial size for centering.
+    // Note: The WM_CREATE handler will also calculate and potentially adjust the size
+    // based on the font actually used by the dialog, which is more accurate.
+
+    // Measure the width/height of the static text using the default GUI font
+    HDC hdc = GetDC(NULL); // Get DC for the screen to measure text before dialog is created
+    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+
+    SIZE textSize;
+    GetTextExtentPoint32A(hdc, STRING_ABOUT_TEXT_ANSI, strlen(STRING_ABOUT_TEXT_ANSI), &textSize);
+
+    SelectObject(hdc, hOldFont);
+    ReleaseDC(NULL, hdc); // Release screen DC
+
+    // Define dimensions and spacing (matching WM_CREATE)
+    const int margin = 20;
+    const int button_width = 75;
+    const int button_height = 25;
+    const int button_spacing = 15;
+
+     // Calculate dialog width and height (matching WM_CREATE)
+    // Width: Max of text width and button width + margins
+    int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
+     // Add padding/buffer
+    int dlgW = required_content_width + margin * 2 + 20; // Increased buffer slightly
+
+    // Height: Top margin + text height + spacing + button height + bottom margin
+    int dlgH = margin + textSize.cy + button_spacing + button_height + margin + 10; // Added buffer slightly
+
+
+    int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
+    int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
+     DebugPrint("ShowModalAboutDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
+
+
+    // Create the modal dialog window
+    HWND hDlg = CreateWindowA(
+        ABOUT_DIALOG_CLASS_NAME_ANSI, // Window class (ANSI)
+        STRING_ABOUT_TITLE_ANSI, // Window title (ANSI)
+        WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME, // Styles for a modal dialog
+        x, y, dlgW, dlgH, // Size and position (using calculated initial size)
+        hwndParent, // Parent window
+        NULL,       // Menu
+        hInst,      // Instance handle
+        NULL        // Additional application data
+    );
+     DebugPrint("ShowModalAboutDialog: CreateWindowA returned %p.\n", hDlg);
+
+
+    if (!hDlg) {
+        DebugPrint("ShowModalAboutDialog: Failed to create about dialog window. GetLastError: %lu\n", GetLastError());
+        MessageBoxA(hwndParent, "Failed to create about dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
+        EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
+        return;
+    }
+    DebugPrint("ShowModalAboutDialog: About dialog window created successfully.\n");
+
+    // WM_CREATE handler will set the font and resize the window accurately.
+
+
+    // Show and update the dialog
+    ShowWindow(hDlg, SW_SHOW);
+    UpdateWindow(hDlg);
+    DebugPrint("ShowModalAboutDialog: Dialog shown and updated.\n");
+
+
+    // Modal loop: run until dialog window is destroyed
+    MSG msg;
+    DebugPrint("ShowModalAboutDialog: Entering modal message loop.\n");
+    while (IsWindow(hDlg) && GetMessageA(&msg, NULL, 0, 0)) {
+        // Check if the message is for a dialog box. If so, let the dialog handle it.
+        // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
+        if (!IsDialogMessage(hDlg, &msg)) {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+    }
+    DebugPrint("ShowModalAboutDialog: Exited modal message loop.\n");
+
+
+    // Re-enable parent window
+    EnableWindow(hwndParent, TRUE);
+    DebugPrint("ShowModalAboutDialog: Parent window re-enabled.\n");
+    // Set focus back to the parent window
+    SetForegroundWindow(hwndParent);
+    DebugPrint("ShowModalAboutDialog finished.\n");
+}
+
+
 // --- Registry Functions ---
 
 // Function to save debug settings to the registry
@@ -1610,8 +1848,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDM_HELP_ABOUT:
                 {
                     DebugPrint("WM_COMMAND: IDM_HELP_ABOUT received.\n");
-                    // Show the About message box
-                    MessageBoxA(hwnd, STRING_ABOUT_TEXT_ANSI, STRING_ABOUT_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
+                    // Show the custom About dialog instead of MessageBoxA
+                    ShowModalAboutDialog(hwnd);
+                    DebugPrint("WM_COMMAND: IDM_HELP_ABOUT called ShowModalAboutDialog.\n");
                     break;
                 }
 
@@ -1825,6 +2064,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Note: The blank modal dialog class is registered within ShowModalBlankDialog when first called.
     // Note: The settings modal dialog class is registered within ShowModalSettingsDialog when first called.
+    // Note: The about modal dialog class is registered within ShowModalAboutDialog when first called.
 
 
     // --- Load Accelerator Table ---
