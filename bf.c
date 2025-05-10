@@ -85,6 +85,7 @@
 #define STRING_CANCEL_ANSI "Cancel"
 #define STRING_NEW_WINDOW_BUTTON_ANSI "New Window" // Text for the new button
 #define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Dialog" // Title for the new dialog
+#define NEW_WINDOW_CLASS_NAME_ANSI "BlankWindowClass" // New window class name
 
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
@@ -112,6 +113,9 @@ INT_PTR CALLBACK BlankDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the settings dialog procedure
 INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+
+// Forward declaration of the new blank window procedure
+LRESULT CALLBACK BlankWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 
 // Helper function to append text to an EDIT control (Defined before use)
@@ -580,6 +584,23 @@ INT_PTR CALLBACK BlankDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
             return (INT_PTR)FALSE; // Return FALSE for messages not handled
     }
     return (INT_PTR)FALSE; // Default return for handled messages that don't return earlier
+}
+
+// --- New Blank Window Procedure ---
+LRESULT CALLBACK BlankWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_CREATE:
+            DebugPrint("BlankWindowProc: WM_CREATE received.\n");
+            // You can create controls or draw here for the new window
+            break;
+        case WM_DESTROY:
+            DebugPrint("BlankWindowProc: WM_DESTROY received.\n");
+            // Clean up any resources specific to this window
+            break;
+        default:
+            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+    }
+    return 0;
 }
 
 
@@ -1275,152 +1296,32 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 case IDC_BUTTON_NEW_WINDOW:
                 {
-                    DebugPrint("WM_COMMAND: IDC_BUTTON_NEW_WINDOW received. Creating new blank dialog.\n");
+                    DebugPrint("WM_COMMAND: IDC_BUTTON_NEW_WINDOW received. Creating new blank window.\n");
 
-                    /*
-                    // --- Define the dialog template in memory ---
-                    // This is a minimal template for a blank dialog box.
-                    // It defines the dialog itself but no controls within it.
+                    // Create a new instance of the blank window class
+                    HWND hwndNew = CreateWindowExA(
+                        0,                                  // Optional window styles.
+                        NEW_WINDOW_CLASS_NAME_ANSI,         // Window class (ANSI)
+                        STRING_BLANK_WINDOW_TITLE_ANSI,     // Window title (ANSI)
+                        WS_OVERLAPPEDWINDOW,                // Window style
 
-                    // Calculate the size needed for the title string (Wide Character)
-                    int title_len_ansi = strlen(STRING_BLANK_WINDOW_TITLE_ANSI);
-                    int title_len_wide = MultiByteToWideChar(CP_ACP, 0, STRING_BLANK_WINDOW_TITLE_ANSI, title_len_ansi, NULL, 0);
-                    size_t title_string_size_wide = (title_len_wide + 1) * sizeof(WCHAR);
+                        // Size and position
+                        CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, // Default size and position
 
-                    // Calculate the total size of the template in memory
-                    // Size of the base DLGTEMPLATEEX_WIDE structure
-                    size_t template_base_size = sizeof(MY_DLGTEMPLATEEX_WIDE);
+                        NULL,       // Parent window (NULL for top-level)
+                        NULL,       // Menu
+                        hInst,      // Instance handle
+                        NULL        // Additional application data
+                    );
 
-                    // Size of the menu name (WORD ordinal 0xFFFF followed by WORD 0 for no menu)
-                    size_t menu_size = sizeof(WORD) + sizeof(WORD); // 0xFFFF, 0
-
-                    // Size of the class name (WORD ordinal 0xFFFF followed by WORD 0 for default dialog class)
-                    size_t class_size = sizeof(WORD) + sizeof(WORD); // 0xFFFF, 0
-
-                    // Total size = base structure size + menu + class + title
-                    size_t total_template_size = template_base_size;
-                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for menu
-                    total_template_size += menu_size;
-                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class
-                    total_template_size += class_size;
-                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
-                    total_template_size += title_string_size_wide;
-
-                     // Ensure the final size is DWORD aligned
-                    total_template_size = (total_template_size + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
-
-
-                    DebugPrint("IDC_BUTTON_NEW_WINDOW: Calculated total template size for blank dialog: %zu\n", total_template_size);
-
-
-                    // Allocate memory for the template
-                    HGLOBAL hGlobalTemplate = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, total_template_size);
-                    DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalAlloc returned %p\n", hGlobalTemplate);
-
-                    if (hGlobalTemplate) {
-                        LPBYTE pGlobalTemplate = (LPBYTE)GlobalLock(hGlobalTemplate);
-                        DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalLock returned %p\n", pGlobalTemplate);
-
-                        if (pGlobalTemplate) {
-                            LPBYTE pCurrent = pGlobalTemplate;
-
-                            // Copy the fixed template structure
-                            MY_DLGTEMPLATEEX_WIDE template_fixed_part = {
-                                0x0001, // dlgVer
-                                0xFFFF, // signature (indicates DLGTEMPLATEEX)
-                                0,      // helpID
-                                0,      // exStyle
-                                WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION | WS_SIZEBOX | WS_THICKFRAME | DS_CENTER, // style (Using WS_SIZEBOX and WS_THICKFRAME for resizeable, DS_CENTER to center)
-                                0,      // cDlgItems (Number of controls - 0 for blank dialog)
-                                0,      // x (ignored due to DS_CENTER)
-                                0,      // y (ignored due to DS_CENTER)
-                                200,    // cx (default width in dialog units)
-                                100     // cy (default height in dialog units)
-                            };
-                            memcpy(pCurrent, &template_fixed_part, sizeof(MY_DLGTEMPLATEEX_WIDE));
-                            pCurrent += sizeof(MY_DLGTEMPLATEEX_WIDE);
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied fixed template structure. Current offset: %zu\n", pCurrent - pGlobalTemplate);
-
-
-                            // Align for menu (WORD alignment)
-                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for menu. Current offset: %zu\n", pCurrent - pGlobalTemplate);
-                            // Copy menu name (ordinal for no menu)
-                            LPWORD pMenu = (LPWORD)pCurrent;
-                            *pMenu++ = 0xFFFF; // Indicates ordinal
-                            *pMenu = 0;      // Ordinal 0 for no menu
-                            pCurrent += sizeof(WORD) * 2; // Size of ordinal + 0
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied menu ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
-
-
-                            // Align for class (WORD alignment)
-                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for class. Current offset: %zu\n", pCurrent - pGlobalTemplate);
-                            // Copy class name (ordinal for default dialog class)
-                             LPWORD pClass = (LPWORD)pCurrent;
-                            *pClass++ = 0xFFFF; // Indicates ordinal
-                            *pClass = 0;      // Ordinal 0 for default dialog class
-                            pCurrent += sizeof(WORD) * 2; // Size of ordinal + 0
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied class ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
-
-
-                            // Align for title (WORD alignment)
-                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for title. Current offset: %zu\n", pCurrent - pGlobalTemplate);
-                            // Copy the wide title string
-                            // Convert ANSI title to Wide Character
-                            WCHAR* blank_dialog_title_wide = (WCHAR*)malloc(title_string_size_wide);
-                             if (blank_dialog_title_wide) {
-                                 MultiByteToWideChar(CP_ACP, 0, STRING_BLANK_WINDOW_TITLE_ANSI, title_len_ansi, blank_dialog_title_wide, title_len_wide);
-                                 blank_dialog_title_wide[title_len_wide] = L'\0'; // Null-terminate wide string
-                                 memcpy(pCurrent, blank_dialog_title_wide, title_string_size_wide);
-                                 free(blank_dialog_title_wide); // Free the temporary wide string buffer
-                                 pCurrent += title_string_size_wide;
-                                 DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied wide title string. Current offset: %zu\n", pCurrent - pGlobalTemplate);
-                             } else {
-                                DebugPrint("IDC_BUTTON_NEW_WINDOW: Failed to allocate memory for wide dialog title.\n");
-                                // Handle memory allocation failure
-                                GlobalUnlock(hGlobalTemplate);
-                                GlobalFree(hGlobalTemplate);
-                                MessageBoxA(hwnd, "Memory allocation failed for dialog title!", "Error", MB_ICONERROR);
-                                break; // Exit the button handler
-                             }
-
-                            // --- No control items added here for a blank dialog ---
-
-
-                            GlobalUnlock(hGlobalTemplate);
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalUnlock called.\n");
-
-
-                            // Call DialogBoxIndirectA (or W if using wide template) with the memory handle
-                            // Since we constructed a wide template in memory, use DialogBoxIndirectW
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Calling DialogBoxIndirectW...\n");
-                            INT_PTR dialog_result = DialogBoxIndirectW(hInst, (LPCDLGTEMPLATE)hGlobalTemplate, hwnd, BlankDialogProc);
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: DialogBoxIndirectW returned %Id.\n", dialog_result);
-
-
-                            if (dialog_result == -1) {
-                                DebugPrint("IDC_BUTTON_NEW_WINDOW: GetLastError after DialogBoxIndirectW: %lu\n", GetLastError());
-                                MessageBoxA(hwnd, "Failed to show blank dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
-                            }
-
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Freeing global memory for dialog template.\n");
-                            GlobalFree(hGlobalTemplate); // Free the allocated memory
-
-                        } else {
-                            DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalLock failed for dialog template. GetLastError: %lu\n", GetLastError());
-                            MessageBoxA(hwnd, "Failed to lock memory for dialog template!", "Error", MB_OK | MB_ICONERROR);
-                        }
+                    if (hwndNew == NULL) {
+                        DebugPrint("IDC_BUTTON_NEW_WINDOW: Failed to create new blank window. GetLastError: %lu\n", GetLastError());
+                        MessageBoxA(hwnd, "Failed to create new window!", "Error", MB_ICONEXCLAMATION | MB_OK);
                     } else {
-                        DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
-                        MessageBoxA(hwnd, "Failed to allocate memory for dialog template!", "Error", MB_ICONERROR);
+                        DebugPrint("IDC_BUTTON_NEW_WINDOW: New blank window created successfully.\n");
+                        ShowWindow(hwndNew, SW_SHOW); // Show the new window
+                        UpdateWindow(hwndNew);       // Update the new window
                     }
-                    */
-
-                    // --- Temporarily replace with a simple MessageBoxA call ---
-                    MessageBoxA(hwnd, "New Window button clicked!", "New Window Test", MB_OK | MB_ICONINFORMATION);
-                    DebugPrint("IDC_BUTTON_NEW_WINDOW: MessageBoxA displayed.\n");
 
                     break; // Break for IDC_BUTTON_NEW_WINDOW case
                 }
@@ -1620,6 +1521,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
     DebugPrint("WinMain: Main window class registered successfully.\n");
+
+    // --- Register the new blank window class ---
+    WNDCLASSA wcBlank = { 0 }; // Use WNDCLASSA for ANSI
+
+    wcBlank.lpfnWndProc     = BlankWindowProc; // Use the new window procedure
+    wcBlank.hInstance       = hInstance;
+    wcBlank.lpszClassName = NEW_WINDOW_CLASS_NAME_ANSI; // Use the new class name
+    wcBlank.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcBlank.hCursor         = LoadCursor(NULL, IDC_ARROW);
+    wcBlank.lpszMenuName  = NULL; // No menu for the blank window
+
+    DebugPrint("WinMain: Registering blank window class.\n");
+    if (!RegisterClassA(&wcBlank)) // Use RegisterClassA for ANSI
+    {
+        DebugPrint("WinMain: Blank window registration failed.\n");
+        // You might want a different error message here
+        MessageBoxA(NULL, "Blank Window Registration Failed!", "Error", MB_ICONEXCLCLAMATION | MB_OK);
+        // Don't return, let the main window still try to create
+    }
+    DebugPrint("WinMain: Blank window class registered successfully.\n");
+
 
     // --- Load Accelerator Table ---
     // Define the accelerator table structure
