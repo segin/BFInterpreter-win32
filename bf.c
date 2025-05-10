@@ -37,6 +37,10 @@
 #define IDC_CHECK_DEBUG_BASIC       303
 // IDOK and IDCANCEL are predefined as 1 and 2
 
+// New Control ID for the dummy checkbox in the new window
+#define IDC_DUMMY_CHECKBOX 501
+
+
 // --- Custom Messages for Thread Communication (ANSI versions) ---
 // Message to append a character to output. wParam = character, lParam = 0. (No longer used with buffering)
 // #define WM_APP_INTERPRETER_OUTPUT_CHAR (WM_APP + 1)
@@ -84,8 +88,9 @@
 #define STRING_OK_ANSI "OK"
 #define STRING_CANCEL_ANSI "Cancel"
 #define STRING_NEW_WINDOW_BUTTON_ANSI "New Window" // Text for the new button
-#define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Dialog" // Title for the new dialog
+#define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Window" // Title for the new window (Changed from Dialog)
 #define NEW_WINDOW_CLASS_NAME_ANSI "BlankWindowClass" // New window class name
+#define STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox" // Text for the dummy checkbox
 
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
@@ -591,8 +596,36 @@ LRESULT CALLBACK BlankWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     switch (uMsg) {
         case WM_CREATE:
             DebugPrint("BlankWindowProc: WM_CREATE received.\n");
-            // You can create controls or draw here for the new window
+            // Create a dummy checkbox in the new window
+            CreateWindowA(
+                "BUTTON",               // Class name
+                STRING_DUMMY_CHECKBOX_ANSI, // Text
+                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
+                10, 10, 200, 20,        // Position and size (x, y, width, height)
+                hwnd,                   // Parent window handle
+                (HMENU)IDC_DUMMY_CHECKBOX, // Control ID
+                hInst,                  // Instance handle
+                NULL                    // Additional application data
+            );
+            DebugPrint("BlankWindowProc: Dummy checkbox created.\n");
             break;
+
+        case WM_COMMAND:
+        { // Added braces for scope
+            int wmId = LOWORD(wParam);
+            switch (wmId) {
+                case IDC_DUMMY_CHECKBOX:
+                    DebugPrint("BlankWindowProc: Dummy checkbox clicked.\n");
+                    // Dummy handler - you would add logic here to respond to the click
+                    // For example, toggle a state variable or perform an action.
+                    // No action needed for a dummy checkbox.
+                    break;
+                // Add other command handlers for controls in this window here
+            }
+            break; // End of WM_COMMAND
+        }
+
+
         case WM_DESTROY:
             DebugPrint("BlankWindowProc: WM_DESTROY received.\n");
             // Clean up any resources specific to this window
@@ -1088,9 +1121,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                     // --- Replace with a simple MessageBoxA call ---
                     MessageBoxA(hwnd, "Settings menu item clicked!", "Settings Test", MB_OK | MB_ICONINFORMATION);
-                    DebugPrint("IDM_FILE_SETTINGS: MessageBoxA displayed.\n");
-
-
                     DebugPrint("WM_COMMAND: Settings dialog process finished.\n");
                     break;
                 }
@@ -1536,7 +1566,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!RegisterClassA(&wcBlank)) // Use RegisterClassA for ANSI
     {
         DebugPrint("WinMain: Blank window registration failed.\n");
-        // Corrected typo here: MB_ICONEXCLCLAMATION -> MB_ICONEXCLAMATION
         MessageBoxA(NULL, "Blank Window Registration Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
         // Don't return, let the main window still try to create
     }
