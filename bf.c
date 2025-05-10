@@ -8,6 +8,7 @@
 #include <stdarg.h>   // For va_list, va_start, va_end
 #include <dlgs.h>     // Include this for dialog styles like DS_RESIZE (though using WS_SIZEBOX/WS_THICKFRAME below)
 #include <commctrl.h> // Include for Common Control
+#include <winreg.h>   // Include for Registry functions
 // Removed #include <algorithm> as this is a C99 project
 
 // Define Control IDs
@@ -107,6 +108,13 @@
 #define STRING_ABOUT_TITLE_ANSI "About Win32 BF Interpreter" // Title for the About box
 #define STRING_ABOUT_TEXT_ANSI "Win32 Brainfuck Interpreter\r\nVersion 1.0\r\nCreated by [Your Name or Placeholder]\r\n\r\nSimple interpreter with basic features." // Text for the About box
 
+// Registry Constants
+#define REG_COMPANY_KEY_ANSI "Software\\Talamar Developments"
+#define REG_APP_KEY_ANSI     "Software\\Talamar Developments\\BF Interpreter"
+#define REG_VALUE_DEBUG_BASIC_ANSI "DebugBasic"
+#define REG_VALUE_DEBUG_INTERPRETER_ANSI "DebugInterpreter"
+#define REG_VALUE_DEBUG_OUTPUT_ANSI "DebugOutput"
+
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
 #define OUTPUT_BUFFER_SIZE  1024  // Size of the output buffer
@@ -136,6 +144,10 @@ void ShowModalBlankDialog(HWND hwndParent);
 LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the function to show the settings modal dialog
 void ShowModalSettingsDialog(HWND hwndParent);
+
+// Forward declarations for Registry functions
+void SaveDebugSettingsToRegistry();
+void LoadDebugSettingsFromRegistry();
 
 
 // Helper function to append text to an EDIT control (Defined before use)
@@ -601,8 +613,6 @@ void ShowModalBlankDialog(HWND hwndParent) {
     DebugPrint("ShowModalBlankDialog: Parent window re-enabled.\n");
     // Set focus back to the parent window
     SetForegroundWindow(hwndParent);
-    DebugPrint("ShowModalBlankDialog: Foreground window set to parent.\n");
-
     DebugPrint("ShowModalBlankDialog finished.\n");
 }
 
@@ -787,6 +797,11 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                     }
                     DebugPrint("SettingsModalDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
 
+                    // Save settings to registry
+                    SaveDebugSettingsToRegistry();
+                    DebugPrint("SettingsModalDialogProc: Called SaveDebugSettingsToRegistry.\n");
+
+
                     DestroyWindow(hwnd); // Close the dialog
                     break;
                 // Removed the case for IDCANCEL
@@ -966,6 +981,144 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     // Set focus back to the parent window
     SetForegroundWindow(hwndParent);
     DebugPrint("ShowModalSettingsDialog finished.\n");
+}
+
+// --- Registry Functions ---
+
+// Function to save debug settings to the registry
+void SaveDebugSettingsToRegistry() {
+    HKEY hKey;
+    DWORD dwDisposition;
+    LONG lResult;
+
+    DebugPrint("SaveDebugSettingsToRegistry: Attempting to open/create registry key.\n");
+
+    // Create or open the registry key
+    lResult = RegCreateKeyExA(
+        HKEY_CURRENT_USER,       // Root key
+        REG_APP_KEY_ANSI,        // Subkey path
+        0,                       // Reserved
+        NULL,                    // Class string
+        REG_OPTION_NON_VOLATILE, // Options
+        KEY_WRITE,               // Desired access
+        NULL,                    // Security attributes
+        &hKey,                   // Resulting handle
+        &dwDisposition           // Disposition (created or opened)
+    );
+
+    if (lResult != ERROR_SUCCESS) {
+        DebugPrint("SaveDebugSettingsToRegistry: RegCreateKeyExA failed with error %lu.\n", lResult);
+        // Optionally, show an error message to the user
+        // MessageBoxA(NULL, "Failed to save settings to registry.", "Registry Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    DebugPrint("SaveDebugSettingsToRegistry: Registry key opened/created successfully.\n");
+
+    // Convert BOOL flags to DWORD (0 or 1)
+    DWORD dwDebugBasic = g_bDebugBasic ? 1 : 0;
+    DWORD dwDebugInterpreter = g_bDebugInterpreter ? 1 : 0;
+    DWORD dwDebugOutput = g_bDebugOutput ? 1 : 0;
+
+    // Write the values
+    lResult = RegSetValueExA(hKey, REG_VALUE_DEBUG_BASIC_ANSI, 0, REG_DWORD, (const BYTE*)&dwDebugBasic, sizeof(dwDebugBasic));
+    if (lResult != ERROR_SUCCESS) {
+        DebugPrint("SaveDebugSettingsToRegistry: RegSetValueExA for DebugBasic failed with error %lu.\n", lResult);
+    } else {
+        DebugPrint("SaveDebugSettingsToRegistry: DebugBasic saved as %lu.\n", dwDebugBasic);
+    }
+
+    lResult = RegSetValueExA(hKey, REG_VALUE_DEBUG_INTERPRETER_ANSI, 0, REG_DWORD, (const BYTE*)&dwDebugInterpreter, sizeof(dwDebugInterpreter));
+    if (lResult != ERROR_SUCCESS) {
+        DebugPrint("SaveDebugSettingsToRegistry: RegSetValueExA for DebugInterpreter failed with error %lu.\n", lResult);
+    } else {
+        DebugPrint("SaveDebugSettingsToRegistry: DebugInterpreter saved as %lu.\n", dwDebugInterpreter);
+    }
+
+    lResult = RegSetValueExA(hKey, REG_VALUE_DEBUG_OUTPUT_ANSI, 0, REG_DWORD, (const BYTE*)&dwDebugOutput, sizeof(dwDebugOutput));
+    if (lResult != ERROR_SUCCESS) {
+        DebugPrint("SaveDebugSettingsToRegistry: RegSetValueExA for DebugOutput failed with error %lu.\n", lResult);
+    } else {
+        DebugPrint("SaveDebugSettingsToRegistry: DebugOutput saved as %lu.\n", dwDebugOutput);
+    }
+
+
+    // Close the registry key
+    RegCloseKey(hKey);
+    DebugPrint("SaveDebugSettingsToRegistry: Registry key closed.\n");
+}
+
+// Function to load debug settings from the registry
+void LoadDebugSettingsFromRegistry() {
+    HKEY hKey;
+    LONG lResult;
+    DWORD dwType;
+    DWORD dwSize;
+    DWORD dwValue;
+
+    DebugPrint("LoadDebugSettingsFromRegistry: Attempting to open registry key.\n");
+
+    // Open the registry key
+    lResult = RegOpenKeyExA(
+        HKEY_CURRENT_USER,   // Root key
+        REG_APP_KEY_ANSI,    // Subkey path
+        0,                   // Options
+        KEY_READ,            // Desired access
+        &hKey                // Resulting handle
+    );
+
+    if (lResult != ERROR_SUCCESS) {
+        DebugPrint("LoadDebugSettingsFromRegistry: RegOpenKeyExA failed with error %lu. Using default settings.\n", lResult);
+        // Key doesn't exist or error, use default global values (which are already initialized)
+        return;
+    }
+
+    DebugPrint("LoadDebugSettingsFromRegistry: Registry key opened successfully. Reading values.\n");
+
+    // Read DebugBasic
+    dwSize = sizeof(dwValue);
+    lResult = RegQueryValueExA(hKey, REG_VALUE_DEBUG_BASIC_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize);
+    if (lResult == ERROR_SUCCESS && dwType == REG_DWORD) {
+        g_bDebugBasic = (dwValue != 0);
+        DebugPrint("LoadDebugSettingsFromRegistry: Read DebugBasic as %d.\n", g_bDebugBasic);
+    } else {
+        DebugPrint("LoadDebugSettingsFromRegistry: Failed to read DebugBasic or type mismatch. Using default (%d).\n", g_bDebugBasic);
+        // Value not found or wrong type, keep default global value
+    }
+
+    // Read DebugInterpreter
+    dwSize = sizeof(dwValue);
+    lResult = RegQueryValueExA(hKey, REG_VALUE_DEBUG_INTERPRETER_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize);
+    if (lResult == ERROR_SUCCESS && dwType == REG_DWORD) {
+        g_bDebugInterpreter = (dwValue != 0);
+        DebugPrint("LoadDebugSettingsFromRegistry: Read DebugInterpreter as %d.\n", g_bDebugInterpreter);
+    } else {
+        DebugPrint("LoadDebugSettingsFromRegistry: Failed to read DebugInterpreter or type mismatch. Using default (%d).\n", g_bDebugInterpreter);
+        // Value not found or wrong type, keep default global value
+    }
+
+    // Read DebugOutput
+    dwSize = sizeof(dwValue);
+    lResult = RegQueryValueExA(hKey, REG_VALUE_DEBUG_OUTPUT_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize);
+    if (lResult == ERROR_SUCCESS && dwType == REG_DWORD) {
+        g_bDebugOutput = (dwValue != 0);
+        DebugPrint("LoadDebugSettingsFromRegistry: Read DebugOutput as %d.\n", g_bDebugOutput);
+    } else {
+        DebugPrint("LoadDebugSettingsFromRegistry: Failed to read DebugOutput or type mismatch. Using default (%d).\n", g_bDebugOutput);
+        // Value not found or wrong type, keep default global value
+    }
+
+    // Apply the rule: if basic is off, all are off (in case registry had inconsistent settings)
+    if (!g_bDebugBasic) {
+        g_bDebugInterpreter = FALSE;
+        g_bDebugOutput = FALSE;
+        DebugPrint("LoadDebugSettingsFromRegistry: Basic debug is off, forcing Interpreter and Output debug off.\n");
+    }
+
+
+    // Close the registry key
+    RegCloseKey(hKey);
+    DebugPrint("LoadDebugSettingsFromRegistry: Registry key closed.\n");
 }
 
 
@@ -1642,6 +1795,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     iccex.dwICC = ICC_STANDARD_CLASSES; // Initialize standard control classes
     InitCommonControlsEx(&iccex);
     DebugPrint("WinMain: Initialized Common Controls.\n");
+
+    // Load debug settings from the registry at program start
+    LoadDebugSettingsFromRegistry();
+    DebugPrint("WinMain: Called LoadDebugSettingsFromRegistry.\n");
 
 
     // Define window class name (ANSI string)
