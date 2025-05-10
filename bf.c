@@ -25,7 +25,7 @@
 #define IDM_FILE_RUN        201
 #define IDM_FILE_COPYOUTPUT 202
 #define IDM_FILE_EXIT       203
-#define IDM_FILE_OPEN       204 // New menu ID for Open
+#M_FILE_OPEN       204 // New menu ID for Open
 #define IDM_FILE_SETTINGS   205 // New menu ID for Settings
 #define IDM_FILE_CLEAROUTPUT 206 // New menu ID for Clear Output
 #define IDM_HELP_ABOUT      207 // New menu ID for About
