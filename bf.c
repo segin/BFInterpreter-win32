@@ -37,9 +37,9 @@
 #define IDC_CHECK_DEBUG_BASIC       303
 // IDOK and IDCANCEL are predefined as 1 and 2
 
-// New Control ID for the dummy checkbox in the new modal window (reused for blank dialog)
+// New Control ID for the dummy checkbox in the new modal window
 #define IDC_DUMMY_CHECKBOX 501
-// New Control ID for the dismiss button in the new modal window (reused for blank dialog)
+// New Control ID for the dismiss button in the new modal window
 #define IDC_BLANK_DIALOG_DISMISS 502
 
 
@@ -94,7 +94,6 @@
 #define BLANK_DIALOG_CLASS_NAME_ANSI "BlankDialogClass" // New window class name for the modal dialog
 #define STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox" // Text for the dummy checkbox
 #define STRING_BLANK_DIALOG_DISMISS_ANSI "Dismiss" // Text for the dismiss button
-#define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass" // New window class name for the settings dialog
 
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
@@ -117,14 +116,12 @@ volatile BOOL g_bDebugBasic = TRUE;       // Default to TRUE
 
 // Forward declaration of the main window procedure
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+// Forward declaration of the settings dialog procedure
+INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the blank modal dialog procedure
 LRESULT CALLBACK BlankModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the function to show the blank modal dialog
 void ShowModalBlankDialog(HWND hwndParent);
-// Forward declaration of the settings modal dialog procedure
-LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-// Forward declaration of the function to show the settings modal dialog
-void ShowModalSettingsDialog(HWND hwndParent);
 
 
 // Helper function to append text to an EDIT control (Defined before use)
@@ -442,6 +439,124 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     return error_status; // Return status
 }
 
+// --- Dialog Template Structure (Wide Character Version) ---
+// This structure must match the DLGTEMPLATEEX format precisely.
+// It will be followed by wide character strings for menu, class, and title,
+// and potentially font information if DS_SETFONT is used.
+#pragma pack(push, 1) // Ensure byte alignment
+typedef struct {
+    WORD      dlgVer;
+    WORD      signature;
+    DWORD     helpID;
+    DWORD     exStyle;
+    DWORD     style;
+    WORD      cDlgItems;
+    short     x;
+    short     y;
+    short     cx;
+    short     cy;
+    // Followed by:
+    // - Menu (WORD ordinal or null-terminated WCHAR string)
+    // - Class (WORD ordinal or null-terminated WCHAR string)
+    // - Title (null-terminated WCHAR string)
+    // - Font (if DS_SETFONT): WORD pointsize, BYTE weight, BYTE italic, null-terminated WCHAR typeface
+} MY_DLGTEMPLATEEX_WIDE;
+
+// --- Dialog Item Template Structure (Wide Character Version) ---
+// This structure defines a control within a dialog box template in memory.
+#pragma pack(push, 1) // Ensure byte alignment
+typedef struct {
+    DWORD  helpID;
+    DWORD  exStyle;
+    DWORD  style;
+    short  x;
+    short  y;
+    short  cx;
+    short  cy;
+    DWORD  id;
+    // Followed by:
+    // - Class (WORD ordinal or null-terminated WCHAR string)
+    // - Title (WORD ordinal or null-terminated WCHAR string)
+    // - Creation Data (WORD size, followed by data)
+} MY_DLGITEMTEMPLATEEX_WIDE;
+#pragma pack(pop)
+
+
+// --- Settings Dialog Procedure ---
+INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    // Declare HWND variables before the switch
+    HWND hCheckInterpreter;
+    HWND hCheckOutput;
+    HWND hCheckBasic;
+    HWND hBtnOK;
+    HWND hBtnCancel;
+
+    switch (message) {
+        case WM_INITDIALOG:
+            DebugPrint("SettingsDialogProc: WM_INITDIALOG received.\n");
+            // Get handles to the dynamically created controls
+            // These will be NULL for a blank dialog, which is expected.
+            hCheckInterpreter = GetDlgItem(hDlg, IDC_CHECK_DEBUG_INTERPRETER);
+            hCheckOutput = GetDlgItem(hDlg, IDC_CHECK_DEBUG_OUTPUT);
+            hCheckBasic = GetDlgItem(hDlg, IDC_CHECK_DEBUG_BASIC);
+            hBtnOK = GetDlgItem(hDlg, IDOK);
+            hBtnCancel = GetDlgItem(hDlg, IDCANCEL);
+
+            // Initialize checkboxes based on current global settings
+            // These checks will safely do nothing if the controls don't exist.
+            if (hCheckInterpreter) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_INTERPRETER, g_bDebugInterpreter ? BST_CHECKED : BST_UNCHECKED);
+            if (hCheckOutput) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
+            if (hCheckBasic) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
+
+            // Apply the rule: if basic is off, all are off
+            if (!g_bDebugBasic) {
+                g_bDebugInterpreter = FALSE;
+                g_bDebugOutput = FALSE;
+            }
+            // Corrected typo here: g_bInterpreter -> g_bDebugInterpreter
+            DebugPrint("SettingsDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
+
+
+            // For a blank dialog, we don't have OK/Cancel buttons to wait for.
+            // The dialog will just appear and can be closed via the system menu or Alt+F4.
+            // We should NOT call EndDialog here, as the user needs to see the blank dialog.
+
+            return (INT_PTR)TRUE; // Return TRUE to set the keyboard focus
+        case WM_COMMAND:
+        { // Added braces to create a new scope
+            DebugPrint("SettingsDialogProc: WM_COMMAND received. LOWORD(wParam): %u, HIWORD(wParam): %u, lParam: %p\n", LOWORD(wParam), HIWORD(wParam), (void*)lParam);
+            switch (LOWORD(wParam)) {
+                case IDOK:
+                    DebugPrint("SettingsDialogProc: IDOK received.\n");
+                    // Save settings from checkboxes (will do nothing for blank dialog)
+                    g_bDebugInterpreter = IsDlgButtonChecked(hDlg, IDC_CHECK_DEBUG_INTERPRETER) == BST_CHECKED;
+                    g_bDebugOutput = IsDlgButtonChecked(hDlg, IDC_CHECK_DEBUG_OUTPUT) == BST_CHECKED;
+                    g_bDebugBasic = IsDlgButtonChecked(hDlg, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
+
+                    // Apply the rule: if basic is off, all are off
+                    if (!g_bDebugBasic) {
+                        g_bDebugInterpreter = FALSE;
+                        g_bDebugOutput = FALSE;
+                    }
+                    DebugPrint("SettingsDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
+
+                    EndDialog(hDlg, LOWORD(wParam)); // Close the dialog
+                    return (INT_PTR)TRUE;
+                case IDCANCEL:
+                    DebugPrint("SettingsDialogProc: IDCANCEL received.\n");
+                    EndDialog(hDlg, LOWORD(wParam)); // Close the dialog
+                    return (INT_PTR)TRUE;
+            }
+            break;
+        } // Added braces to create a new scope
+         case WM_CLOSE:
+            DebugPrint("SettingsDialogProc: WM_CLOSE received.\n");
+            EndDialog(hDlg, IDCANCEL); // Treat closing via system menu as Cancel
+            return (INT_PTR)TRUE;
+    }
+    return (INT_PTR)FALSE; // Let the system handle other messages
+}
+
 // --- Blank Modal Dialog Procedure ---
 LRESULT CALLBACK BlankModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
@@ -593,226 +708,6 @@ void ShowModalBlankDialog(HWND hwndParent) {
     DebugPrint("ShowModalBlankDialog: Foreground window set to parent.\n");
 
     DebugPrint("ShowModalBlankDialog finished.\n");
-}
-
-// --- Settings Modal Dialog Procedure ---
-LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    switch (uMsg) {
-        case WM_CREATE:
-            DebugPrint("SettingsModalDialogProc: WM_CREATE received.\n");
-            // Create checkboxes
-            CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_DEBUG_INTERPRETER_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 20, 300, 20,        // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDC_CHECK_DEBUG_INTERPRETER, // Control ID
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("SettingsModalDialogProc: Interpreter debug checkbox created.\n");
-
-            CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_DEBUG_OUTPUT_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 45, 300, 20,        // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDC_CHECK_DEBUG_OUTPUT, // Control ID
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("SettingsModalDialogProc: Output debug checkbox created.\n");
-
-            CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_DEBUG_BASIC_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 70, 300, 20,        // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDC_CHECK_DEBUG_BASIC, // Control ID
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("SettingsModalDialogProc: Basic debug checkbox created.\n");
-
-            // Create OK and Cancel buttons
-            CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_OK_ANSI,         // Text
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, // Styles
-                80, 110, 75, 25,        // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDOK,            // Control ID (predefined)
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("SettingsModalDialogProc: OK button created.\n");
-
-            CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_CANCEL_ANSI,     // Text
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP, // Styles
-                160, 110, 75, 25,       // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDCANCEL,        // Control ID (predefined)
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("SettingsModalDialogProc: Cancel button created.\n");
-
-            // Initialize checkboxes based on current global settings
-            CheckDlgButton(hwnd, IDC_CHECK_DEBUG_INTERPRETER, g_bDebugInterpreter ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hwnd, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hwnd, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
-            DebugPrint("SettingsModalDialogProc: Checkboxes initialized.\n");
-
-            break;
-
-        case WM_COMMAND:
-        { // Added braces for scope
-            DebugPrint("SettingsModalDialogProc: WM_COMMAND received.\n");
-            int wmId = LOWORD(wParam);
-            switch (wmId) {
-                case IDOK:
-                    DebugPrint("SettingsModalDialogProc: IDOK received.\n");
-                    // Save settings from checkboxes
-                    g_bDebugInterpreter = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_INTERPRETER) == BST_CHECKED;
-                    g_bDebugOutput = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_OUTPUT) == BST_CHECKED;
-                    g_bDebugBasic = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
-
-                    // Apply the rule: if basic is off, all are off
-                    if (!g_bDebugBasic) {
-                        g_bDebugInterpreter = FALSE;
-                        g_bDebugOutput = FALSE;
-                    }
-                    DebugPrint("SettingsModalDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
-
-                    DestroyWindow(hwnd); // Close the dialog
-                    break;
-                case IDCANCEL:
-                    DebugPrint("SettingsModalDialogProc: IDCANCEL received.\n");
-                    DestroyWindow(hwnd); // Close the dialog
-                    break;
-                case IDC_CHECK_DEBUG_BASIC:
-                    DebugPrint("SettingsModalDialogProc: Basic debug checkbox clicked.\n");
-                    // If basic is unchecked, uncheck the others
-                    if (IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_UNCHECKED) {
-                        CheckDlgButton(hwnd, IDC_CHECK_DEBUG_INTERPRETER, BST_UNCHECKED);
-                        CheckDlgButton(hwnd, IDC_CHECK_DEBUG_OUTPUT, BST_UNCHECKED);
-                    }
-                    break;
-                // No specific handlers needed for other checkboxes unless they have unique logic
-            }
-            break; // End of WM_COMMAND
-        }
-
-        case WM_CLOSE:
-            DebugPrint("SettingsModalDialogProc: WM_CLOSE received.\n");
-            DestroyWindow(hwnd); // Treat closing via system menu as Cancel
-            break;
-
-        case WM_DESTROY:
-            DebugPrint("SettingsModalDialogProc: WM_DESTROY received.\n");
-            // No specific cleanup needed for controls
-            break;
-
-        default:
-            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-    }
-    return 0;
-}
-
-// --- Function to show the settings modal dialog ---
-void ShowModalSettingsDialog(HWND hwndParent) {
-    DebugPrint("ShowModalSettingsDialog called.\n");
-    // Disable parent window
-    EnableWindow(hwndParent, FALSE);
-    DebugPrint("ShowModalSettingsDialog: Parent window disabled.\n");
-
-    // Register dialog class once
-    static BOOL registered = FALSE;
-    if (!registered) {
-        WNDCLASSA wc = {0};
-        wc.lpfnWndProc     = SettingsModalDialogProc; // Use the settings modal dialog procedure
-        wc.hInstance       = hInst; // Use the global instance handle
-        wc.lpszClassName = SETTINGS_DIALOG_CLASS_NAME_ANSI; // Use the new class name
-        wc.hCursor         = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
-        // No lpszMenuName for a dialog
-
-        DebugPrint("ShowModalSettingsDialog: Registering settings dialog class.\n");
-        if (!RegisterClassA(&wc)) {
-            DebugPrint("ShowModalSettingsDialog: Settings dialog registration failed. GetLastError: %lu\n", GetLastError());
-            MessageBoxA(hwndParent, "Failed to register settings dialog class!", "Error", MB_ICONEXCLAMATION | MB_OK);
-            EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
-            return;
-        }
-        registered = TRUE;
-        DebugPrint("ShowModalSettingsDialog: Settings dialog class registered successfully.\n");
-    }
-
-    // Center over parent
-    RECT rcParent;
-    GetWindowRect(hwndParent, &rcParent);
-    int dlgW = 350, dlgH = 180; // Dialog size (adjusted for controls)
-    int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
-    int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-     DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d).\n", x, y);
-
-
-    // Create the modal dialog window
-    HWND hDlg = CreateWindowA(
-        SETTINGS_DIALOG_CLASS_NAME_ANSI, // Window class (ANSI)
-        STRING_SETTINGS_TITLE_ANSI, // Window title (ANSI)
-        WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME, // Styles for a modal dialog
-        x, y, dlgW, dlgH, // Size and position
-        hwndParent, // Parent window
-        NULL,       // Menu
-        hInst,      // Instance handle
-        NULL        // Additional application data
-    );
-     DebugPrint("ShowModalSettingsDialog: CreateWindowA returned %p.\n", hDlg);
-
-
-    if (!hDlg) {
-        DebugPrint("ShowModalSettingsDialog: Failed to create settings dialog window. GetLastError: %lu\n", GetLastError());
-        MessageBoxA(hwndParent, "Failed to create settings dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
-        EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
-        return;
-    }
-    DebugPrint("ShowModalSettingsDialog: Settings dialog window created successfully.\n");
-
-
-    // Show and update the dialog
-    ShowWindow(hDlg, SW_SHOW);
-    UpdateWindow(hDlg);
-    DebugPrint("ShowModalSettingsDialog: Dialog shown and updated.\n");
-
-
-    // Modal loop: run until dialog window is destroyed
-    MSG msg;
-    DebugPrint("ShowModalSettingsDialog: Entering modal message loop.\n");
-    while (IsWindow(hDlg) && GetMessageA(&msg, NULL, 0, 0)) {
-        // Check if the message is for this dialog box.
-        // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
-        if (!IsDialogMessage(hDlg, &msg)) {
-            TranslateMessage(&msg);
-            DispatchMessageA(&msg);
-        }
-    }
-    DebugPrint("ShowModalSettingsDialog: Exited modal message loop.\n");
-
-
-    // Re-enable parent window
-    EnableWindow(hwndParent, TRUE);
-    DebugPrint("ShowModalSettingsDialog: Parent window re-enabled.\n");
-    // Set focus back to the parent window
-    SetForegroundWindow(hwndParent);
-    DebugPrint("ShowModalSettingsDialog: Foreground window set to parent.\n");
-
-    DebugPrint("ShowModalSettingsDialog finished.\n");
 }
 
 
@@ -1061,9 +956,247 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 case IDM_FILE_SETTINGS:
                 {
-                    DebugPrint("WM_COMMAND: IDM_FILE_SETTINGS received. Calling ShowModalSettingsDialog.\n");
-                    ShowModalSettingsDialog(hwnd); // Call the function to show the settings dialog
-                    break; // Break for IDM_FILE_SETTINGS case
+                    DebugPrint("WM_COMMAND: IDM_FILE_SETTINGS received. Attempting to show message box.\n");
+
+                    /*
+                    // --- Prepare data for the dialog template in memory ---
+
+                    // Dialog Title (Wide Character)
+                    int title_len_ansi = strlen(STRING_SETTINGS_TITLE_ANSI);
+                    int title_len_wide = MultiByteToWideChar(CP_ACP, 0, STRING_SETTINGS_TITLE_ANSI, title_len_ansi, NULL, 0);
+                    WCHAR* settings_dialog_title_wide = (WCHAR*)malloc((title_len_wide + 1) * sizeof(WCHAR));
+                    if (!settings_dialog_title_wide) {
+                        DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide title string.\n");
+                        // Optionally, show an error message box
+                        break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, STRING_SETTINGS_TITLE_ANSI, title_len_ansi, settings_dialog_title_wide, title_len_wide);
+                    settings_dialog_title_wide[title_len_wide] = L'\0'; // Null-terminate wide string
+                    size_t title_string_size_wide = (title_len_wide + 1) * sizeof(WCHAR);
+
+                    // Control Class Names (Wide Character)
+                    // These are allocated but not used in the blank dialog case, will be freed.
+                    const char* btn_class_ansi = "BUTTON";
+                    int btn_class_len_wide = MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, NULL, 0); // -1 for null terminator
+                    WCHAR* btn_class_wide = (WCHAR*)malloc(btn_class_len_wide * sizeof(WCHAR));
+                    if (!btn_class_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide button class string.\n");
+                         free(settings_dialog_title_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, btn_class_wide, btn_class_len_wide);
+                    // size_t btn_class_size_wide = btn_class_len_wide * sizeof(WCHAR); // Not needed for blank dialog
+
+                    // Control Text (Wide Character)
+                    // These are allocated but not used in the blank dialog case, will be freed.
+                    const char* debug_interp_text_ansi = STRING_DEBUG_INTERPRETER_ANSI;
+                    int debug_interp_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_interp_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_interp_text_wide = (WCHAR*)malloc(debug_interp_text_len_wide * sizeof(WCHAR));
+                     if (!debug_interp_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug interp text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_interp_text_ansi, -1, debug_interp_text_wide, debug_interp_text_len_wide);
+                    // size_t debug_interp_text_size_wide = debug_interp_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* debug_output_text_ansi = STRING_DEBUG_OUTPUT_ANSI;
+                    int debug_output_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_output_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_output_text_wide = (WCHAR*)malloc(debug_output_text_len_wide * sizeof(WCHAR));
+                     if (!debug_output_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug output text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_output_text_ansi, -1, debug_output_text_wide, debug_output_text_len_wide);
+                    // size_t debug_output_text_size_wide = debug_output_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* debug_basic_text_ansi = STRING_DEBUG_BASIC_ANSI;
+                    int debug_basic_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_basic_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_basic_text_wide = (WCHAR*)malloc(debug_basic_text_len_wide * sizeof(WCHAR));
+                     if (!debug_basic_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug basic text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_basic_text_ansi, -1, debug_basic_text_wide, debug_basic_text_len_wide);
+                    // size_t debug_basic_text_size_wide = debug_basic_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* ok_text_ansi = STRING_OK_ANSI;
+                    int ok_text_len_wide = MultiByteToWideChar(CP_ACP, 0, ok_text_ansi, -1, NULL, 0);
+                    WCHAR* ok_text_wide = (WCHAR*)malloc(ok_text_len_wide * sizeof(WCHAR));
+                     if (!ok_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide OK text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         free(debug_basic_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, ok_text_ansi, -1, ok_text_wide, ok_text_len_wide);
+                    // size_t ok_text_size_wide = ok_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* cancel_text_ansi = STRING_CANCEL_ANSI;
+                    int cancel_text_len_wide = MultiByteToWideChar(CP_ACP, 0, cancel_text_ansi, -1, NULL, 0);
+                    WCHAR* cancel_text_wide = (WCHAR*)malloc(cancel_text_len_wide * sizeof(WCHAR));
+                     if (!cancel_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide Cancel text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         free(debug_basic_text_wide);
+                         free(ok_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, cancel_text_ansi, -1, cancel_text_wide, cancel_text_len_wide);
+                    // size_t cancel_text_size_wide = cancel_text_len_wide * sizeof(WCHAR); // Not needed
+
+
+                    // --- Calculate total required memory size for a blank dialog ---
+
+                    // Size of the base DLGTEMPLATEEX_WIDE structure
+                    size_t template_base_size = sizeof(MY_DLGTEMPLATEEX_WIDE);
+
+                    // Size of the menu name (WORD ordinal 0xFFFF followed by WORD 0 for no menu)
+                    size_t menu_size = sizeof(WORD) + sizeof(WORD); // 0xFFFF, 0
+
+                    // Size of the class name (WORD ordinal 0xFFFF followed by WORD 0 for default dialog class)
+                    size_t class_size = sizeof(WORD) + sizeof(WORD); // 0xFFFF, 0
+
+                    // Total size = base structure size + menu + class + title
+                    size_t total_template_size = template_base_size;
+                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for menu
+                    total_template_size += menu_size;
+                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class
+                    total_template_size += class_size;
+                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    total_template_size += title_string_size_wide;
+
+                    // Ensure the final size is DWORD aligned (although for just the header, WORD is sufficient)
+                    total_template_size = (total_template_size + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
+
+
+                    DebugPrint("IDM_FILE_SETTINGS: Calculated total template size for blank dialog: %zu\n", total_template_size);
+
+
+                    // Allocate memory for the combined template and data
+                    HGLOBAL hGlobalTemplate = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, total_template_size);
+                    DebugPrint("IDM_FILE_SETTINGS: GlobalAlloc returned %p\n", hGlobalTemplate);
+
+                    if (hGlobalTemplate) {
+                        LPBYTE pGlobalTemplate = (LPBYTE)GlobalLock(hGlobalTemplate);
+                        DebugPrint("IDM_FILE_SETTINGS: GlobalLock returned %p\n", pGlobalTemplate);
+
+                        if (pGlobalTemplate) {
+                            LPBYTE pCurrent = pGlobalTemplate;
+
+                            // Copy the fixed template structure
+                            MY_DLGTEMPLATEEX_WIDE template_fixed_part = {
+                                0x0001, // dlgVer
+                                0xFFFF, // signature (indicates DLGTEMPLATEEX)
+                                0,      // helpID
+                                0,      // exStyle
+                                WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION, // style (removed DS_SETFONT)
+                                0,      // cDlgItems (Number of controls - set to 0 for blank dialog)
+                                100,    // x (arbitrary position)
+                                100,    // y (arbitrary position)
+                                350,    // cx (width)
+                                150     // cy (height)
+                            };
+                            memcpy(pCurrent, &template_fixed_part, sizeof(MY_DLGTEMPLATEEX_WIDE));
+                            pCurrent += sizeof(MY_DLGTEMPLATEEX_WIDE);
+                            DebugPrint("IDM_FILE_SETTINGS: Copied fixed template structure. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+                            // Align for menu (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDM_FILE_SETTINGS: Aligned for menu. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy menu name (ordinal for no menu)
+                            LPWORD pMenu = (LPWORD)pCurrent;
+                            *pMenu++ = 0xFFFF; // Indicates ordinal
+                            *pMenu = 0;      // Ordinal 0 for no menu
+                            pCurrent += sizeof(WORD) * 2; // Size of ordinal + 0
+                            DebugPrint("IDM_FILE_SETTINGS: Copied menu ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for class (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDM_FILE_SETTINGS: Aligned for class. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy class name (ordinal for default dialog class)
+                             LPWORD pClass = (LPWORD)pCurrent;
+                            *pClass++ = 0xFFFF; // Indicates ordinal
+                            *pClass = 0;      // Ordinal 0 for default dialog class
+                            pCurrent += sizeof(WORD) * 2; // Size of ordinal + 0
+                            DebugPrint("IDM_FILE_SETTINGS: Copied class ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for title (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDM_FILE_SETTINGS: Aligned for title. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy the wide title string
+                            LPWSTR pTitle = (LPWSTR)pCurrent;
+                            memcpy(pTitle, settings_dialog_title_wide, title_string_size_wide);
+                            pCurrent += title_string_size_wide;
+                            DebugPrint("IDM_FILE_SETTINGS: Copied wide title string. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // --- No control items added here for a blank dialog ---
+                            // Commented out the ADD_CONTROL_ITEM macro calls:
+                            // #define ADD_CONTROL_ITEM(...) ...
+                            // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_INTERPRETER, btn_class_wide, debug_interp_text_wide, 10, 10, 300, 20, BS_AUTOCHECKBOX, 0);
+                            // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_OUTPUT, btn_class_wide, debug_output_text_wide, 10, 35, 300, 20, BS_AUTOCHECKBOX, 0);
+                            // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_BASIC, btn_class_wide, debug_basic_text_wide, 10, 60, 300, 20, BS_AUTOCHECKBOX, 0);
+                            // ADD_CONTROL_ITEM(IDOK, btn_class_wide, ok_text_wide, 80, 100, 75, 25, BS_DEFPUSHBUTTON, 0);
+                            // ADD_CONTROL_ITEM(IDCANCEL, btn_class_wide, cancel_text_wide, 160, 100, 75, 25, BS_PUSHBUTTON, 0);
+
+
+                            GlobalUnlock(hGlobalTemplate);
+                            DebugPrint("IDM_FILE_SETTINGS: GlobalUnlock called.\n");
+
+
+                            // Call DialogBoxIndirectW with the memory handle
+                            DebugPrint("IDM_FILE_SETTINGS: Calling DialogBoxIndirectW...\n");
+                            INT_PTR dialog_result = DialogBoxIndirectW(hInst, (LPCDLGTEMPLATE)hGlobalTemplate, hwnd, SettingsDialogProc);
+                            DebugPrint("IDM_FILE_SETTINGS: DialogBoxIndirectW returned %Id.\n", dialog_result);
+
+
+                            if (dialog_result == -1) {
+                                DebugPrint("IDM_FILE_SETTINGS: GetLastError after DialogBoxIndirectW: %lu\n", GetLastError());
+                            }
+
+                            DebugPrint("IDM_FILE_SETTINGS: Freeing global memory.\n");
+                            GlobalFree(hGlobalTemplate); // Free the allocated memory
+
+                        } else {
+                            DebugPrint("IDM_FILE_SETTINGS: GlobalLock failed for dialog template. GetLastError: %lu\n", GetLastError());
+                        }
+                    } else {
+                        DebugPrint("IDM_FILE_SETTINGS: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
+                    }
+
+                    // Free the allocated wide strings (moved inside the case)
+                    // free(settings_dialog_title_wide); // This variable was not allocated in this version
+                    // These were allocated but not used in the blank dialog case, still good to free.
+                    // free(btn_class_wide); // This variable is not used in the blank dialog case
+                    // free(debug_interp_text_wide); // Not used
+                    // free(debug_output_text_wide); // Not used
+                    // free(debug_basic_text_wide); // Not used
+                    // free(ok_text_wide); // Not used
+                    // free(cancel_text_wide); // Not used
+                    DebugPrint("IDM_FILE_SETTINGS: Freed wide string memory.\n");
+                    */
+
+                    // --- Replace with a simple MessageBoxA call ---
+                    MessageBoxA(hwnd, "Settings menu item clicked!", "Settings Test", MB_OK | MB_ICONINFORMATION);
+                    DebugPrint("WM_COMMAND: Settings dialog process finished.\n");
+                    break;
                 }
 
                 case IDM_FILE_RUN:
@@ -1469,8 +1602,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     DebugPrint("WinMain: Main window class registered successfully.\n");
 
     // Note: The blank modal dialog class is registered within ShowModalBlankDialog when first called.
-    // Note: The settings modal dialog class is registered within ShowModalSettingsDialog when first called.
-
 
     // --- Load Accelerator Table ---
     // Define the accelerator table structure
@@ -1532,7 +1663,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     {
         // Check if the message is for a dialog box. If so, let the dialog handle it.
         // This is crucial for modal dialogs created with DialogBoxIndirect,
-        // but also helps with the custom modal loop in ShowModalBlankDialog and ShowModalSettingsDialog.
+        // but also helps with the custom modal loop in ShowModalBlankDialog.
         if (!IsDialogMessage(GetActiveWindow(), &msg)) {
              // Translate accelerator keys before dispatching the message
             if (!TranslateAcceleratorA(msg.hwnd, hAccelTable, &msg)) {
