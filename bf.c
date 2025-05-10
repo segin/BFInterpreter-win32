@@ -645,7 +645,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             const int button_group_width = button_width * 2 + button_spacing; // Width of OK and Cancel buttons + space
 
             // Calculate required dialog width: Max of checkbox width and button group width + margins
-            int required_content_width = max(checkbox_control_width, button_group_width);
+            int required_content_width = (checkbox_control_width > button_group_width ? checkbox_control_width : button_group_width); // Use ternary operator instead of max
             int dlgW = required_content_width + margin * 2;
 
             // Calculate required dialog height: Top margin + 3 checkboxes height + 2 checkbox spacings + button spacing + button height + Bottom margin
@@ -855,7 +855,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
 
     // Calculate required dialog width: Max of checkbox width and button group width + margins
-    int required_content_width = max(checkbox_control_width, button_group_width);
+    int required_content_width = (checkbox_control_width > button_group_width ? checkbox_control_width : button_group_width); // Use ternary operator instead of max
     int dlgW = required_content_width + margin * 2;
 
     // Calculate required dialog height: Top margin + 3 checkboxes height + 2 checkbox spacings + button spacing + button height + Bottom margin
@@ -905,7 +905,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     MSG msg;
     DebugPrint("ShowModalSettingsDialog: Entering modal message loop.\n");
     while (IsWindow(hDlg) && GetMessageA(&msg, NULL, 0, 0)) {
-        // Check if the message is for this dialog box.
+        // Check if the message is for a dialog box. If so, let the dialog handle it.
         // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
         if (!IsDialogMessage(hDlg, &msg)) {
             TranslateMessage(&msg);
