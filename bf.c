@@ -678,8 +678,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     ofn.hwndOwner = hwnd;
                     ofn.lpstrFile = szFile;
                     ofn.nMaxFile = sizeof(szFile);
-                    // Filter for Brainfuck files and all files
-                    ofn.lpstrFilter = "Brainfuck Source Code (*.bf)\0*.bf\0All Files (*.*)\0*.*\0";
+                    // Filter for Brainfuck files (*.bf and *.b) and all files
+                    ofn.lpstrFilter = "Brainfuck Source Code (*.bf, *.b)\0*.bf;*.b\0All Files (*.*)\0*.*\0";
                     ofn.nFilterIndex = 1; // Default to the first filter (Brainfuck files)
                     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
                     ofn.lpstrTitle = STRING_OPEN_FILE_TITLE_ANSI;
@@ -980,7 +980,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // Helper macro to add a control item
                             #define ADD_CONTROL_ITEM(id, class_wide, text_wide, x, y, cx, cy, style, exStyle) \
                             { \
-                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1)); /* DWORD align */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1)); /* DWORD align for item template struct */ \
                                 DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 MY_DLGITEMTEMPLATEEX_WIDE item_template = { \
                                     0, /* helpID */ \
@@ -994,7 +994,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE); \
                                 \
                                 /* Copy Class Name (string) */ \
-                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for class name */ \
                                 DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemClass = (LPWSTR)pCurrent; \
                                 size_t item_class_len = wcslen(class_wide) + 1; \
@@ -1003,7 +1003,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset after class: %zu\n", id, item_class_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
                                 \
                                 /* Copy Title (string) */ \
-                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for title */ \
                                 DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemText = (LPWSTR)pCurrent; \
                                 size_t item_text_len = wcslen(text_wide) + 1; \
@@ -1012,7 +1012,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset after text: %zu\n", id, item_text_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
                                 \
                                 /* Creation Data (always 0 size for standard controls) */ \
-                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for creation data size */ \
                                 DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 LPWORD pCreationDataSize = (LPWORD)pCurrent; \
                                 *pCreationDataSize = 0; /* Size of creation data */ \
