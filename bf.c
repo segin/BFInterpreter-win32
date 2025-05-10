@@ -18,7 +18,7 @@
 #define IDC_EDIT_INPUT      104
 #define IDC_STATIC_OUTPUT   105
 #define IDC_EDIT_OUTPUT     106 // Reverted back to EDIT control ID
-#define IDC_BUTTON_NEW_WINDOW 108 // New ID for the "New Window" button
+// Removed IDC_BUTTON_NEW_WINDOW 108
 
 // Define Menu IDs
 #define IDM_FILE_NEW        200 // New menu ID for New
@@ -44,13 +44,8 @@
 #define IDC_CHECK_DEBUG_BASIC       303
 // IDOK and IDCANCEL are predefined as 1 and 2
 
-// New Control ID for the dummy checkbox in the new modal window (reused for blank dialog)
-#define IDC_DUMMY_CHECKBOX 501
-// New Control ID for the dismiss button in the new modal window (reused for blank dialog)
-#define IDC_BLANK_DIALOG_DISMISS 502
-
-// Define Dialog Control IDs for About Dialog
-#define IDC_STATIC_ABOUT_TEXT 601
+// Removed IDC_DUMMY_CHECKBOX 501
+// Removed IDC_BLANK_DIALOG_DISMISS 502
 
 
 // --- Custom Messages for Thread Communication (ANSI versions) ---
@@ -102,11 +97,11 @@
 #define STRING_DEBUG_BASIC_ANSI "Enable basic debug messages"
 #define STRING_OK_ANSI "OK"
 #define STRING_CANCEL_ANSI "Cancel" // Keep this constant for clarity, even if the button isn't created
-#define STRING_NEW_WINDOW_BUTTON_ANSI "New Window" // Text for the new button
-#define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Dialog" // Title for the new modal window
-#define BLANK_DIALOG_CLASS_NAME_ANSI "BlankDialogClass" // New window class name for the modal dialog
-#define STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox" // Text for the dummy checkbox
-#define STRING_BLANK_DIALOG_DISMISS_ANSI "Dismiss" // Text for the dismiss button
+// Removed STRING_NEW_WINDOW_BUTTON_ANSI "New Window"
+// Removed STRING_BLANK_WINDOW_TITLE_ANSI "Blank Dialog"
+// Removed BLANK_DIALOG_CLASS_NAME_ANSI "BlankDialogClass"
+// Removed STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox"
+// Removed STRING_BLANK_DIALOG_DISMISS_ANSI "Dismiss"
 #define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass" // New window class name for the settings dialog
 #define STRING_ABOUT_TITLE_ANSI "About Win32 BF Interpreter" // Title for the About box
 #define STRING_ABOUT_TEXT_ANSI "Win32 Brainfuck Interpreter\r\nVersion 1.0\r\nCreated by [Your Name or Placeholder]\r\n\r\nSimple interpreter with basic features." // Text for the About box
@@ -141,10 +136,8 @@ volatile BOOL g_bDebugBasic = TRUE;       // Default to TRUE
 
 // Forward declaration of the main window procedure
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-// Forward declaration of the blank modal dialog procedure
-LRESULT CALLBACK BlankModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-// Forward declaration of the function to show the blank modal dialog
-void ShowModalBlankDialog(HWND hwndParent);
+// Removed Forward declaration of the blank modal dialog procedure
+// Removed Forward declaration of the function to show the blank modal dialog
 // Forward declaration of the settings modal dialog procedure
 LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the function to show the settings modal dialog
@@ -475,156 +468,9 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     return error_status; // Return status
 }
 
-// --- Blank Modal Dialog Procedure ---
-LRESULT CALLBACK BlankModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    switch (uMsg) {
-        case WM_CREATE:
-            DebugPrint("BlankModalDialogProc: WM_CREATE received.\n");
-            // Create a dummy checkbox in the new modal window
-            CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_DUMMY_CHECKBOX_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 20, 200, 20,        // Position and size (x, y, width, height)
-                hwnd,                   // Parent window handle
-                (HMENU)IDC_DUMMY_CHECKBOX, // Control ID
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("BlankModalDialogProc: Dummy checkbox created.\n");
+// Removed BlankModalDialogProc function
+// Removed ShowModalBlankDialog function
 
-            // Create a dismiss button
-            CreateWindowA(
-                "BUTTON",                   // Class name
-                STRING_BLANK_DIALOG_DISMISS_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, // Styles
-                75, 60, 100, 30,            // Position and size
-                hwnd,                       // Parent window handle
-                (HMENU)IDC_BLANK_DIALOG_DISMISS, // Control ID
-                hInst,                      // Instance handle
-                NULL                        // Additional application data
-            );
-             DebugPrint("BlankModalDialogProc: Dismiss button created.\n");
-
-            break;
-
-        case WM_COMMAND:
-        { // Added braces for scope
-            DebugPrint("BlankModalDialogProc: WM_COMMAND received.\n");
-            int wmId = LOWORD(wParam);
-            switch (wmId) {
-                case IDC_DUMMY_CHECKBOX:
-                    DebugPrint("BlankModalDialogProc: Dummy checkbox clicked.\n");
-                    // Dummy handler - you would add logic here to respond to the click
-                    break;
-                case IDC_BLANK_DIALOG_DISMISS:
-                    DebugPrint("BlankModalDialogProc: Dismiss button clicked. Destroying dialog.\n");
-                    DestroyWindow(hwnd); // Destroy the modal dialog window
-                    break;
-            }
-            break; // End of WM_COMMAND
-        }
-
-        case WM_DESTROY:
-            DebugPrint("BlankModalDialogProc: WM_DESTROY received.\n");
-            // Clean up any resources specific to this window
-            // No specific cleanup needed for the controls created in WM_CREATE,
-            // as DestroyWindow handles child windows.
-            break;
-
-        default:
-            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-    }
-    return 0;
-}
-
-// --- Function to show the blank modal dialog ---
-void ShowModalBlankDialog(HWND hwndParent) {
-    DebugPrint("ShowModalBlankDialog called.\n");
-    // Disable parent window
-    EnableWindow(hwndParent, FALSE);
-    DebugPrint("ShowModalBlankDialog: Parent window disabled.\n");
-
-    // Register dialog class once
-    static BOOL registered = FALSE;
-    if (!registered) {
-        WNDCLASSA wc = {0};
-        wc.lpfnWndProc     = BlankModalDialogProc; // Use the modal dialog procedure
-        wc.hInstance       = hInst; // Use the global instance handle
-        wc.lpszClassName = BLANK_DIALOG_CLASS_NAME_ANSI; // Use the new class name
-        wc.hCursor         = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
-        // No lpszMenuName for a dialog
-
-        DebugPrint("ShowModalBlankDialog: Registering blank dialog class.\n");
-        if (!RegisterClassA(&wc)) {
-            DebugPrint("ShowModalBlankDialog: Blank dialog registration failed. GetLastError: %lu\n", GetLastError());
-            MessageBoxA(hwndParent, "Failed to register blank dialog class!", "Error", MB_ICONEXCLAMATION | MB_OK);
-            EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
-            return;
-        }
-        registered = TRUE;
-        DebugPrint("ShowModalBlankDialog: Blank dialog class registered successfully.\n");
-    }
-
-    // Center over parent
-    RECT rcParent;
-    GetWindowRect(hwndParent, &rcParent);
-    int dlgW = 250, dlgH = 120; // Dialog size
-    int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
-    int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-     DebugPrint("ShowModalBlankDialog: Calculated dialog position (%d, %d).\n", x, y);
-
-
-    // Create the modal dialog window
-    HWND hDlg = CreateWindowA(
-        BLANK_DIALOG_CLASS_NAME_ANSI, // Window class (ANSI)
-        STRING_BLANK_WINDOW_TITLE_ANSI, // Window title (ANSI)
-        WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME, // Styles for a modal dialog
-        x, y, dlgW, dlgH, // Size and position
-        hwndParent, // Parent window
-        NULL,       // Menu
-        hInst,      // Instance handle
-        NULL        // Additional application data
-    );
-     DebugPrint("ShowModalBlankDialog: CreateWindowA returned %p.\n", hDlg);
-
-    if (!hDlg) {
-        DebugPrint("ShowModalBlankDialog: Failed to create blank dialog window. GetLastError: %lu\n", GetLastError());
-        MessageBoxA(hwndParent, "Failed to create new modal dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
-        EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
-        return;
-    }
-    DebugPrint("ShowModalBlankDialog: Blank dialog window created successfully.\n");
-
-
-    // Show and update the dialog
-    ShowWindow(hDlg, SW_SHOW);
-    UpdateWindow(hDlg);
-    DebugPrint("ShowModalBlankDialog: Dialog shown and updated.\n");
-
-
-    // Modal loop: run until dialog window is destroyed
-    MSG msg;
-    DebugPrint("ShowModalBlankDialog: Entering modal message loop.\n");
-    while (IsWindow(hDlg) && GetMessageA(&msg, NULL, 0, 0)) {
-        // Check if the message is for a dialog box. If so, let the dialog handle it.
-        // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
-        if (!IsDialogMessage(hDlg, &msg)) {
-            TranslateMessage(&msg);
-            DispatchMessageA(&msg);
-        }
-    }
-    DebugPrint("ShowModalBlankDialog: Exited modal message loop.\n");
-
-
-    // Re-enable parent window
-    EnableWindow(hwndParent, TRUE);
-    DebugPrint("ShowModalBlankDialog: Parent window re-enabled.\n");
-    // Set focus back to the parent window
-    SetForegroundWindow(hwndParent);
-    DebugPrint("ShowModalBlankDialog finished.\n");
-}
 
 // --- Settings Modal Dialog Procedure ---
 LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -771,8 +617,8 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
             // Set initial enabled/disabled state of interpreter and output checkboxes
             BOOL bEnableOthers = (g_bDebugBasic == TRUE); // Use boolean logic
-            EnableWindow(hCheckInterpreter, bEnableOthers);
-            EnableWindow(hCheckOutput, bEnableOthers);
+            EnableWindow(GetDlgItem(hwnd, IDC_CHECK_DEBUG_INTERPRETER), bEnableOthers);
+            EnableWindow(GetDlgItem(hwnd, IDC_CHECK_DEBUG_OUTPUT), bEnableOthers);
             DebugPrint("SettingsModalDialogProc: Initial enabled state set for interpreter/output checkboxes.\n");
 
 
@@ -906,7 +752,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     GetTextExtentPoint32A(hdc, STRING_DEBUG_OUTPUT_ANSI, strlen(STRING_DEBUG_OUTPUT_ANSI), &size);
     if (size.cx > max_text_width) max_text_width = size.cx;
     GetTextExtentPoint32A(hdc, STRING_DEBUG_BASIC_ANSI, strlen(STRING_DEBUG_BASIC_ANSI), &size);
-    if (size.cx > max_text_width) max_text_width = size.cx;
+    if (size.cx > max_text_width) maxTextWidth = size.cx;
 
     SelectObject(hdc, hOldFont);
     ReleaseDC(NULL, hdc); // Release screen DC
@@ -956,7 +802,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
     if (!hDlg) {
         DebugPrint("ShowModalSettingsDialog: Failed to create settings dialog window. GetLastError: %lu\n", GetLastError());
-        MessageBoxA(hwndParent, "Failed to create settings dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
+        MessageBoxA(hwndParent, "Failed to create settings dialog!", "Error", MB_OK | MB_ICONEXCLAMATION | MB_OK);
         EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
         return;
     }
@@ -1455,17 +1301,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
 
-            // New Window Button (positioned in the top-right)
-            // Get client rectangle to position relative to window size
-            RECT rcClient;
-            GetClientRect(hwnd, &rcClient);
-            int buttonWidth = 100;
-            int buttonHeight = 25;
-            int buttonMargin = 10;
-
-            CreateWindowA("BUTTON", STRING_NEW_WINDOW_BUTTON_ANSI, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                          rcClient.right - buttonWidth - buttonMargin, buttonMargin, buttonWidth, buttonHeight,
-                          hwnd, (HMENU)IDC_BUTTON_NEW_WINDOW, hInst, NULL);
+            // Removed "New Window" Button creation
 
 
             // --- Debug Print: Check the class name of the created output control ---
@@ -1497,9 +1333,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             int editTopMargin = 5;
             int spacing = 10;
             int minimumEditHeight = 30; // Minimum height for any edit box
-            int buttonWidth = 100; // Keep button size fixed
-            int buttonHeight = 25;
-            int buttonMargin = 10;
+            // Removed button dimensions and margin
 
 
             int currentY = margin;
@@ -1527,10 +1361,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (outputEditHeight < minimumEditHeight) outputEditHeight = minimumEditHeight; // Ensure minimum
             MoveWindow(hwndOutputEdit, margin, currentY, width - 2 * margin, outputEditHeight, TRUE); // Move edit control
 
-            // Position the "New Window" button in the top-right
-            MoveWindow(GetDlgItem(hwnd, IDC_BUTTON_NEW_WINDOW),
-                       width - buttonWidth - buttonMargin, buttonMargin,
-                       buttonWidth, buttonHeight, TRUE);
+            // Removed "New Window" button MoveWindow call
 
 
             break; // End of WM_SIZE
@@ -1838,12 +1669,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SendMessageA(hwndOutputEdit, EM_SETSEL, 0, -1);
                     break;
 
-                case IDC_BUTTON_NEW_WINDOW:
-                {
-                    DebugPrint("WM_COMMAND: IDC_BUTTON_NEW_WINDOW received. Calling ShowModalBlankDialog.\n");
-                    ShowModalBlankDialog(hwnd); // Call the function to show the modal dialog
-                    break; // Break for IDC_BUTTON_NEW_WINDOW case
-                }
+                // Removed case IDC_BUTTON_NEW_WINDOW:
 
                 case IDM_HELP_ABOUT:
                 {
@@ -2062,7 +1888,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     DebugPrint("WinMain: Main window class registered successfully.\n");
 
-    // Note: The blank modal dialog class is registered within ShowModalBlankDialog when first called.
+    // Removed registration note for the blank modal dialog class.
     // Note: The settings modal dialog class is registered within ShowModalSettingsDialog when first called.
     // Note: The about modal dialog class is registered within ShowModalAboutDialog when first called.
 
