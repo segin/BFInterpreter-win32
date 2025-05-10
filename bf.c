@@ -18,17 +18,21 @@
 #define IDC_BUTTON_NEW_WINDOW 108 // New ID for the "New Window" button
 
 // Define Menu IDs
+#define IDM_FILE_NEW        200 // New menu ID for New
 #define IDM_FILE_RUN        201
 #define IDM_FILE_COPYOUTPUT 202
 #define IDM_FILE_EXIT       203
 #define IDM_FILE_OPEN       204 // New menu ID for Open
 #define IDM_FILE_SETTINGS   205 // New menu ID for Settings
 #define IDM_FILE_CLEAROUTPUT 206 // New menu ID for Clear Output
+#define IDM_HELP_ABOUT      207 // New menu ID for About
 
-// Accelerator IDs for Ctrl+A
+// Accelerator IDs for Ctrl+A, Ctrl+N, Ctrl+F1
 #define IDM_SELECTALL_CODE   401
 #define IDM_SELECTALL_INPUT  402
 #define IDM_SELECTALL_OUTPUT 403
+#define IDA_FILE_NEW         404 // Accelerator ID for Ctrl+N
+#define IDA_HELP_ABOUT       405 // Accelerator ID for Ctrl+F1
 
 
 // Define Dialog Control IDs for Settings Dialog
@@ -56,6 +60,7 @@
 #define STRING_CODE_HELP_ANSI    "Code:"
 #define STRING_INPUT_HELP_ANSI   "Standard input:"
 #define STRING_OUTPUT_HELP_ANSI  "Standard output:"
+#define STRING_ACTION_NEW_ANSI   "&New\tCtrl+N" // Added New menu text
 #define STRING_ACTION_RUN_ANSI   "&Run\tCtrl+R"
 #define STRING_ACTION_COPY_ANSI  "&Copy Output\tCtrl+C"
 #define STRING_ACTION_EXIT_ANSI  "E&xit\tCtrl+X" // Added Ctrl+X to menu text
@@ -63,6 +68,8 @@
 #define STRING_ACTION_SETTINGS_ANSI "&Settings..." // Added Settings menu text
 #define STRING_ACTION_CLEAROUTPUT_ANSI "C&lear Output" // Added Clear Output menu text
 #define STRING_FILE_MENU_ANSI    "&File"
+#define STRING_HELP_MENU_ANSI    "&Help" // Added Help menu text
+#define STRING_ACTION_ABOUT_ANSI "&About\tCtrl+F1" // Added About menu text
 #define STRING_CODE_TEXT_ANSI    ",[>,]<[.<]" // Default code
 #define STRING_INPUT_TEXT_ANSI   "This is the default stdin-text" // Default input
 #define STRING_COPIED_ANSI       "Output copied to clipboard!"
@@ -82,7 +89,7 @@
 #define STRING_CONFIRM_EXIT_ANSI "Confirm Exit"
 #define STRING_REALLY_QUIT_ANSI "Really quit?"
 #define STRING_OPEN_FILE_TITLE_ANSI "Open Brainfuck Source File"
-#define STRING_SETTINGS_NOT_IMPLEMENTED_ANSI "Settings option is not yet implemented."
+#define STRING_SETTINGS_NOT_IMPLEMENTED_ANSI "Settings option is not yet implemented." // This is now implemented, can be removed or updated
 #define STRING_SETTINGS_TITLE_ANSI "Interpreter Settings"
 #define STRING_DEBUG_INTERPRETER_ANSI "Enable interpreter instruction debug messages"
 #define STRING_DEBUG_OUTPUT_ANSI "Enable interpreter output message debug messages"
@@ -95,6 +102,8 @@
 #define STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox" // Text for the dummy checkbox
 #define STRING_BLANK_DIALOG_DISMISS_ANSI "Dismiss" // Text for the dismiss button
 #define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass" // New window class name for the settings dialog
+#define STRING_ABOUT_TITLE_ANSI "About Win32 BF Interpreter" // Title for the About box
+#define STRING_ABOUT_TEXT_ANSI "Win32 Brainfuck Interpreter\r\nVersion 1.0\r\nCreated by [Your Name or Placeholder]\r\n\r\nSimple interpreter with basic features." // Text for the About box
 
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
@@ -605,7 +614,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_INTERPRETER_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 20, 300, 20,        // Position and size
+                20, 20, 300, 20,        // Position and size (x, y, width, height)
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_INTERPRETER, // Control ID
                 hInst,                  // Instance handle
@@ -756,7 +765,8 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     // Center over parent
     RECT rcParent;
     GetWindowRect(hwndParent, &rcParent);
-    int dlgW = 350, dlgH = 180; // Dialog size (adjusted for controls)
+    // Adjusted dialog size to accommodate longer text and buttons
+    int dlgW = 450, dlgH = 180; // Dialog size (adjusted for controls)
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
     int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
      DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d).\n", x, y);
@@ -848,7 +858,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // --- Create Menu ---
             HMENU hMenubar = CreateMenu();
             HMENU hMenuFile = CreateMenu();
+            HMENU hMenuHelp = CreateMenu(); // Create Help menu
 
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_NEW, STRING_ACTION_NEW_ANSI); // Added New menu item
+            AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL); // Separator after New
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_OPEN, STRING_ACTION_OPEN_ANSI); // Added Open menu item
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_RUN, STRING_ACTION_RUN_ANSI);
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_COPYOUTPUT, STRING_ACTION_COPY_ANSI);
@@ -859,6 +872,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_EXIT, STRING_ACTION_EXIT_ANSI); // Updated menu text
 
             AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuFile, STRING_FILE_MENU_ANSI);
+
+            // Add About to Help menu
+            AppendMenuA(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, STRING_ACTION_ABOUT_ANSI); // Added About menu item
+            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuHelp, STRING_HELP_MENU_ANSI); // Append Help menu to menubar
+
 
             SetMenu(hwnd, hMenubar);
 
@@ -983,6 +1001,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // Parse the menu selections:
             switch (wmId)
             {
+                case IDM_FILE_NEW:
+                {
+                    DebugPrint("WM_COMMAND: IDM_FILE_NEW received.\n");
+                    // Implement "New" functionality: Clear code and input
+                    SetWindowTextA(hwndCodeEdit, "");
+                    SetWindowTextA(hwndInputEdit, "");
+                    SetWindowTextA(hwndOutputEdit, ""); // Also clear output
+                    DebugPrint("IDM_FILE_NEW: Code, input, and output cleared.\n");
+                    SetFocus(hwndCodeEdit); // Set focus back to code edit
+                    break;
+                }
+
                 case IDM_FILE_OPEN:
                 {
                     DebugPrint("WM_COMMAND: IDM_FILE_OPEN received.\n");
@@ -1272,6 +1302,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     break; // Break for IDC_BUTTON_NEW_WINDOW case
                 }
 
+                case IDM_HELP_ABOUT:
+                {
+                    DebugPrint("WM_COMMAND: IDM_HELP_ABOUT received.\n");
+                    // Show the About message box
+                    MessageBoxA(hwnd, STRING_ABOUT_TEXT_ANSI, STRING_ABOUT_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
+                    break;
+                }
+
 
                 default:
                     // Let Windows handle any messages we don't process (ANSI version)
@@ -1475,13 +1513,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // --- Load Accelerator Table ---
     // Define the accelerator table structure
     ACCEL AccelTable[] = {
+        {FVIRTKEY | FCONTROL, 'N', IDM_FILE_NEW}, // Ctrl+N for New
         {FVIRTKEY | FCONTROL, 'R', IDM_FILE_RUN},
         {FVIRTKEY | FCONTROL, 'C', IDM_FILE_COPYOUTPUT},
         {FVIRTKEY | FCONTROL, 'X', IDM_FILE_EXIT}, // Accelerator for Exit
         {FVIRTKEY | FCONTROL, 'O', IDM_FILE_OPEN},  // Accelerator for Open
         {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_CODE}, // Ctrl+A for Code Edit
         {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_INPUT}, // Ctrl+A for Input Edit
-        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_OUTPUT} // Ctrl+A for Output Edit (now that it's an edit control)
+        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_OUTPUT}, // Ctrl+A for Output Edit (now that it's an edit control)
+        {FVIRTKEY | FCONTROL, VK_F1, IDM_HELP_ABOUT} // Ctrl+F1 for About
     };
 
     // Create the accelerator table from the structure
