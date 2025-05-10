@@ -2,14 +2,14 @@
 #include <windows.h>
 #include <windowsx.h> // For GET_WM_COMMAND_ID
 #include <stdio.h>    // For sprintf_s (optional, mainly for debugging or error messages)
-#include <stdlib.h>   // For malloc/free
-#include <string.h>   // For memset, strlen, strcpy, etc.
+#include <stdlib.h>   // For malloc/free, _strdup
+#include <string.h>   // For memset, strlen, strcpy, strtok_s, strncpy, strncat
 #include <commdlg.h>  // For OpenFileName
 #include <stdarg.h>   // For va_list, va_start, va_end
 #include <dlgs.h>     // Include this for dialog styles like DS_RESIZE (though using WS_SIZEBOX/WS_THICKFRAME below)
 #include <commctrl.h> // Include for Common Control
 #include <winreg.h>   // Include for Registry functions
-// Removed #include <algorithm> as this is a C99 project
+// Removed #include <algorithm> - this was a C++ header, replaced std::max with ternary operator
 
 // Define Control IDs
 #define IDC_STATIC_CODE     101
@@ -23,17 +23,28 @@
 // Define Menu IDs
 #define IDM_FILE_NEW        200 // New menu ID for New
 #define IDM_FILE_RUN        201
-#define IDM_FILE_COPYOUTPUT 202
+#define IDM_FILE_COPYOUTPUT 202 // Keep existing ID for menu item
 #define IDM_FILE_EXIT       203
 #define IDM_FILE_OPEN       204 // New menu ID for Open
 #define IDM_FILE_SETTINGS   205 // New menu ID for Settings
 #define IDM_FILE_CLEAROUTPUT 206 // New menu ID for Clear Output
 #define IDM_HELP_ABOUT      207 // New menu ID for About
 
+// New Edit Menu IDs
+#define IDM_EDIT_CUT        210
+#define IDM_EDIT_COPY       211
+#define IDM_EDIT_PASTE      212
+#define IDM_EDIT_SELECTALL  213 // Re-used the concept, but defined here for clarity
+
 // Accelerator IDs
-#define IDM_EDIT_SELECTALL   400 // Single Accelerator ID for Ctrl+A
 #define IDA_FILE_NEW         404 // Accelerator ID for Ctrl+N
 #define IDA_HELP_ABOUT       405 // Accelerator ID for Ctrl+F1
+#define IDA_EDIT_CUT         410 // Accelerator ID for Ctrl+X
+#define IDA_EDIT_COPY        411 // Accelerator ID for Ctrl+C
+#define IDA_EDIT_PASTE       412 // Accelerator ID for Ctrl+V
+#define IDA_EDIT_SELECTALL   413 // Accelerator ID for Ctrl+A
+#define IDA_FILE_COPYOUTPUT  414 // Accelerator ID for Ctrl+Shift+C (New)
+
 
 // Removed separate select all IDs as per Gemini Pro suggestion
 // #define IDM_SELECTALL_CODE   401
@@ -63,13 +74,14 @@
 #define WM_APP_INTERPRETER_DONE   (WM_APP + 3)
 
 // --- Constants (ANSI versions) ---
-#define WINDOW_TITLE_ANSI        "Win32 BF Interpreter"
+// Modified title bar text as requested
+#define WINDOW_TITLE_ANSI        "BF Interpreter"
 #define STRING_CODE_HELP_ANSI    "Code:"
 #define STRING_INPUT_HELP_ANSI   "Standard input:"
 #define STRING_OUTPUT_HELP_ANSI  "Standard output:"
 #define STRING_ACTION_NEW_ANSI   "&New\tCtrl+N" // Added New menu text
 #define STRING_ACTION_RUN_ANSI   "&Run\tCtrl+R"
-#define STRING_ACTION_COPY_ANSI  "&Copy Output\tCtrl+C"
+#define STRING_ACTION_COPY_ANSI  "&Copy Output\tCtrl+Shift+C" // Updated menu text for Copy Output
 #define STRING_ACTION_EXIT_ANSI  "E&xit\tCtrl+X" // Added Ctrl+X to menu text
 #define STRING_ACTION_OPEN_ANSI  "&Open...\tCtrl+O" // Added Open menu text
 #define STRING_ACTION_SETTINGS_ANSI "&Settings..." // Added Settings menu text
@@ -104,15 +116,22 @@
 #define STRING_OK_ANSI "OK"
 #define STRING_CANCEL_ANSI "Cancel" // Keep this constant for clarity, even if the button isn't created
 // Removed STRING_NEW_WINDOW_BUTTON_ANSI "New Window"
-// Removed STRING_BLANK_WINDOW_TITLE_ANSI "Blank Dialog"
+// Removed STRING_BLANK_DIALOG_TITLE_ANSI "Blank Dialog"
 // Removed BLANK_DIALOG_CLASS_NAME_ANSI "BlankDialogClass"
 // Removed STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox"
 // Removed STRING_BLANK_DIALOG_DISMISS_ANSI "Dismiss"
 #define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass" // New window class name for the settings dialog
 #define STRING_ABOUT_TITLE_ANSI "About BF Interpreter-win32" // Updated title for the About box
-// Updated text for the About box with new name and copyright
-#define STRING_ABOUT_TEXT_ANSI "BF Interpreter-win32\r\nVersion 1.0\r\nCopyright 2015-2025 Kirn Gill II <segin2005@gmail.com>\r\n\r\nSimple interpreter with basic features."
+// Updated text for the About box with new name, blank line, and copyright
+#define STRING_ABOUT_TEXT_ANSI "BF Interpreter\r\n\r\nVersion 1.0\r\nCopyright 2015-2025 Kirn Gill II <segin2005@gmail.com>\r\n\r\nSimple interpreter with basic features."
 #define ABOUT_DIALOG_CLASS_NAME_ANSI "AboutDialogClass" // New window class name for the about dialog
+
+// New Edit Menu Strings
+#define STRING_EDIT_MENU_ANSI    "&Edit"
+#define STRING_ACTION_CUT_ANSI   "Cu&t\tCtrl+X"
+#define STRING_ACTION_COPY_ANSI_EDIT "&Cop&y\tCtrl+C" // Specific Copy for Edit menu
+#define STRING_ACTION_PASTE_ANSI "Pas&te\tCtrl+V"
+#define STRING_ACTION_SELECTALL_ANSI "Select &All\tCtrl+A"
 
 
 // Registry Constants
@@ -129,6 +148,7 @@
 // Global variables
 HINSTANCE hInst;
 HFONT hMonoFont = NULL;
+HFONT hLabelFont = NULL; // New: Handle for the label font
 HWND hwndCodeEdit = NULL;
 HWND hwndInputEdit = NULL;
 HWND hwndOutputEdit = NULL; // Reverted back to original name for edit control
@@ -270,9 +290,9 @@ void SendBufferedOutput(InterpreterParams* params) {
         if (output_string) {
             PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)output_string);
         } else {
-            DebugPrint("SendBufferedOutput: Failed to duplicate output string.\n");
-            // Optionally, post an error message to the UI
-            PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)"Error: Failed to buffer output.\r\n");
+             DebugPrint("SendBufferedOutput: Failed to duplicate output string.\n");
+             // Optionally, post an error message to the UI
+             PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)"Error: Failed to buffer output.\r\n");
         }
         params->output_buffer_pos = 0; // Reset buffer position
     }
@@ -382,7 +402,7 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                 } else {
                     // Buffer is full, send it to the main thread
                     SendBufferedOutput(params);
-                    // Add the current character to the now-empty buffer
+                     // Add the current character to the now-empty buffer
                     params->output_buffer[params->output_buffer_pos++] = Tape_get(&tape);
                 }
                 // Yield to other threads/processes periodically to keep UI responsive
@@ -399,8 +419,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                         else if (ocode[current_pc] == ']') bracket_count--;
                     }
                     if (current_pc >= ocode_len) { // Reached end without finding matching ']'
-                        error_status = 1;
-                        DebugPrintInterpreter("InterpretThreadProc: Mismatched opening bracket found (no matching closing bracket).\n");
+                         error_status = 1;
+                         DebugPrintInterpreter("InterpretThreadProc: Mismatched opening bracket found (no matching closing bracket).\n");
                     } else {
                         pc = current_pc + 1; // Jump *past* the matching ']'
                     }
@@ -418,12 +438,12 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                         if (ocode[current_pc] == ']') bracket_count++;
                         else if (ocode[current_pc] == '[') bracket_count--;
                     }
-                    if (current_pc < 0) { // Reached beginning without finding matching '['
-                        error_status = 1;
-                        DebugPrintInterpreter("InterpretThreadProc: Mismatched closing bracket found (no matching opening bracket).\n");
-                    } else {
+                     if (current_pc < 0) { // Reached beginning without finding matching '['
+                         error_status = 1;
+                         DebugPrintInterpreter("InterpretThreadProc: Mismatched closing bracket found (no matching opening bracket).\n");
+                     } else {
                         pc = current_pc; // Jump *to* the matching '['
-                    }
+                     }
                 } else {
                     // If cell is zero, just move to the next instruction
                     pc++;
@@ -432,8 +452,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
         }
         // Check for external stop signal periodically
         if (!g_bInterpreterRunning) { // Accessing volatile bool
-            DebugPrintInterpreter("InterpretThreadProc: Stop signal received.\n");
-            break; // Exit the loop if stop is requested
+             DebugPrintInterpreter("InterpretThreadProc: Stop signal received.\n");
+             break; // Exit the loop if stop is requested
         }
     }
 
@@ -444,8 +464,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     // This check is redundant if the loop logic correctly sets error_status on mismatch
     // but keeping it doesn't hurt and might catch edge cases.
     if (error_status == 0 && pc < ocode_len && (ocode[pc] == '[' || ocode[pc] == ']')) {
-    error_status = 1; // Mismatched brackets detected at the end
-    DebugPrintInterpreter("InterpretThreadProc: Mismatched brackets detected at end of code.\n");
+       error_status = 1; // Mismatched brackets detected at the end
+       DebugPrintInterpreter("InterpretThreadProc: Mismatched brackets detected at end of code.\n");
     }
 
     // Post specific error message if it was a bracket mismatch
@@ -489,13 +509,14 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
         { // Added braces to limit the scope of variables
             DebugPrint("SettingsModalDialogProc: WM_CREATE received.\n");
 
-            // Set dialog font first
-            SendMessage(hwnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
-            DebugPrint("SettingsModalDialogProc: Applied DEFAULT_GUI_FONT to dialog.\n");
+            // Get the system default GUI font for dialog controls
+            HFONT hGuiFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            DebugPrint("SettingsModalDialogProc: Obtained DEFAULT_GUI_FONT.\n");
+
 
             HDC hdc = GetDC(hwnd);
-            HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0); // Get the font actually used by the dialog
-            HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+            HFONT hOldFont = (HFONT)SelectObject(hdc, hGuiFont); // Select the GUI font for measurement
+
 
             // Calculate font metrics for checkbox height
             TEXTMETRIC tm;
@@ -561,6 +582,10 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
+            // Apply the GUI font to the checkbox
+            if (hGuiFont && hCheckBasic) {
+                SendMessageA(hCheckBasic, WM_SETFONT, (WPARAM)hGuiFont, MAKELPARAM(TRUE, 0));
+            }
             DebugPrint("SettingsModalDialogProc: Basic debug checkbox created.\n");
             yPos += checkHeight + checkbox_spacing;
 
@@ -575,6 +600,10 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
+             // Apply the GUI font to the checkbox
+            if (hGuiFont && hCheckInterpreter) {
+                SendMessageA(hCheckInterpreter, WM_SETFONT, (WPARAM)hGuiFont, MAKELPARAM(TRUE, 0));
+            }
             DebugPrint("SettingsModalDialogProc: Interpreter debug checkbox created.\n");
             yPos += checkHeight + checkbox_spacing;
 
@@ -589,6 +618,10 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
+             // Apply the GUI font to the checkbox
+            if (hGuiFont && hCheckOutput) {
+                SendMessageA(hCheckOutput, WM_SETFONT, (WPARAM)hGuiFont, MAKELPARAM(TRUE, 0));
+            }
             DebugPrint("SettingsModalDialogProc: Output debug checkbox created.\n");
             yPos += checkHeight + button_spacing; // Space before the button
 
@@ -597,7 +630,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
 
             // Create ONLY the OK button using WC_BUTTONA (Common Controls Button)
-            CreateWindowA(
+            HWND hOkButton = CreateWindowA(
                 WC_BUTTONA,               // Class name (Common Controls)
                 STRING_OK_ANSI,         // Text
                 WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, // Styles (BS_DEFPUSHBUTTON makes it the default button)
@@ -607,6 +640,10 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
+            // Apply the GUI font to the button
+            if (hGuiFont && hOkButton) {
+                SendMessageA(hOkButton, WM_SETFONT, (WPARAM)hGuiFont, MAKELPARAM(TRUE, 0));
+            }
             DebugPrint("SettingsModalDialogProc: OK button created.\n");
 
             // Removed the creation of the Cancel button
@@ -630,7 +667,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             DebugPrint("SettingsModalDialogProc: Dialog resized to (%d, %d).\n", dlgW, dlgH);
 
 
-            SelectObject(hdc, hOldFont);
+            SelectObject(hdc, hOldFont); // Restore original font
             ReleaseDC(hwnd, hdc);
 
 
@@ -719,8 +756,9 @@ void ShowModalSettingsDialog(HWND hwndParent) {
         wc.lpfnWndProc     = SettingsModalDialogProc; // Use the settings modal dialog procedure
         wc.hInstance       = hInst; // Use the global instance handle
         wc.lpszClassName = SETTINGS_DIALOG_CLASS_NAME_ANSI; // Use the new class name
+        // Use COLOR_3DFACE for the background brush for a 3D look
+        wc.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
         wc.hCursor         = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
         // No lpszMenuName for a dialog
 
         DebugPrint("ShowModalSettingsDialog: Registering settings dialog class.\n");
@@ -786,27 +824,27 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
     int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-    DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
+     DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
 
 
     // Create the modal dialog window
     HWND hDlg = CreateWindowA(
         SETTINGS_DIALOG_CLASS_NAME_ANSI, // Window class (ANSI)
         STRING_SETTINGS_TITLE_ANSI, // Window title (ANSI)
-        WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME, // Styles for a modal dialog
+        WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_3DLOOK, // Styles for a modal dialog, added DS_3DLOOK
         x, y, dlgW, dlgH, // Size and position (using calculated initial size)
         hwndParent, // Parent window
         NULL,       // Menu
         hInst,      // Instance handle
         NULL        // Additional application data
     );
-    DebugPrint("ShowModalSettingsDialog: CreateWindowA returned %p.\n", hDlg);
+     DebugPrint("ShowModalSettingsDialog: CreateWindowA returned %p.\n", hDlg);
 
 
     if (!hDlg) {
         DebugPrint("ShowModalSettingsDialog: Failed to create settings dialog window. GetLastError: %lu\n", GetLastError());
         // Corrected error message as suggested by Gemini Pro
-        MessageBoxA(hwndParent, "Failed to create settings dialog window!", "Error", MB_ICONEXCLAMATION | MB_OK);
+        MessageBoxA(hwndParent, "Failed to create settings dialog window!", "Error", MB_OK | MB_ICONEXCLAMATION | MB_OK);
         EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
         return;
     }
@@ -845,67 +883,109 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
 // --- About Modal Dialog Procedure ---
 LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    static HFONT hSansFont = NULL; // Static to track the font
+
     switch (uMsg) {
         case WM_CREATE:
         {
             DebugPrint("AboutModalDialogProc: WM_CREATE received.\n");
-            // Set dialog font first
-            SendMessage(hwnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
-            DebugPrint("AboutModalDialogProc: Applied DEFAULT_GUI_FONT to dialog.\n");
+
+            // Create sans-serif font using system message font
+            // Corrected structure name from NONCLIENTMETRICA to NONCLIENTMETRICSA
+            NONCLIENTMETRICSA ncm = { sizeof(NONCLIENTMETRICSA) };
+            SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+            hSansFont = CreateFontIndirectA(&ncm.lfMessageFont);
+            DebugPrint("AboutModalDialogProc: Created sans-serif font.\n");
+
 
             HDC hdc = GetDC(hwnd);
-            HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0); // Get the font actually used by the dialog
-            HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+            // Explicitly cast the return of SelectObject to HFONT
+            HFONT hOldFont = (HFONT)SelectObject(hdc, hSansFont);
+
+            // Calculate text metrics
+            TEXTMETRIC tm;
+            GetTextMetrics(hdc, &tm);
+            int line_height = tm.tmHeight;
+
+            // Split the about text into lines and find max line width
+            const char *text = STRING_ABOUT_TEXT_ANSI;
+            char *text_copy = _strdup(text); // Use _strdup which is safer than strdup but Microsoft-specific
+            if (!text_copy) {
+                DebugPrint("Failed to duplicate about text.\n");
+                // Handle error appropriately, maybe show a simple message box
+                SelectObject(hdc, hOldFont);
+                ReleaseDC(hwnd, hdc);
+                return -1; // Indicate creation failure
+            }
+
+            char *token;
+            char *next_token = NULL;
+            int line_count = 0;
+            int max_line_width = 0;
+
+            // Use strtok_s for safer tokenization (Microsoft-specific)
+            token = strtok_s(text_copy, "\r\n", &next_token);
+            while (token != NULL) {
+                SIZE line_size;
+                GetTextExtentPoint32A(hdc, token, strlen(token), &line_size);
+                if (line_size.cx > max_line_width) {
+                    max_line_width = line_size.cx;
+                }
+                line_count++;
+                token = strtok_s(NULL, "\r\n", &next_token);
+            }
+            free(text_copy);
+
+            int text_height = line_count * line_height;
 
             // Define dimensions and spacing
-            const int margin = 20;
+            // Increased margin and button spacing for more vertical room
+            const int margin = 25; // Increased margin
             const int button_width = 75;
             const int button_height = 25;
-            const int button_spacing = 15;
-
-            // Calculate required size for the static text control
-            SIZE textSize;
-            GetTextExtentPoint32A(hdc, STRING_ABOUT_TEXT_ANSI, strlen(STRING_ABOUT_TEXT_ANSI), &textSize);
+            const int button_spacing = 20; // Increased space between text and button
+            const int bottom_margin = 60; // Doubled bottom margin
 
             // Calculate dialog width and height
-            // Width: Max of text width and button width + margins
-            int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
-            // Reduce padding/buffer slightly to reduce overall width
-            int dlgW = required_content_width + margin * 2 + 10; // Reduced buffer
+            int required_content_width = max_line_width > button_width ? max_line_width : button_width;
+            // Add padding around the content
+            int dlgW = required_content_width + 2 * margin;
+            // Increased total height by adding the increased bottom margin
+            int dlgH = margin + text_height + button_spacing + button_height + bottom_margin;
 
-            // Height: Top margin + text height + spacing + button height + bottom margin
-            int dlgH = margin + textSize.cy + button_spacing + button_height + margin + 10; // Added buffer slightly
-
-
-            // Create Static Text control
-            CreateWindowA(
-                "STATIC",               // Class name
-                STRING_ABOUT_TEXT_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | SS_CENTER, // Styles (SS_CENTER for centered text)
-                margin, margin, dlgW - 2 * margin, textSize.cy, // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDC_STATIC_ABOUT_TEXT, // Control ID
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
+            // Create Static Text control using WC_STATIC (Common Controls)
+            HWND hStatic = CreateWindowA(
+                WC_STATICA, // Use Common Controls Static class
+                (LPCSTR)STRING_ABOUT_TEXT_ANSI, // Explicitly cast to LPCSTR
+                WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOPREFIX, // SS_LEFT for left justification, SS_NOPREFIX prevents & accelerators
+                margin, margin, required_content_width, text_height,
+                hwnd,
+                (HMENU)IDC_STATIC_ABOUT_TEXT,
+                hInst,
+                NULL
             );
+            if (hSansFont && hStatic) {
+                SendMessage(hStatic, WM_SETFONT, (WPARAM)hSansFont, TRUE);
+            }
             DebugPrint("AboutModalDialogProc: Static text control created.\n");
 
-            // Calculate button position to be centered below text
-            int ok_button_x = margin + (dlgW - 2 * margin - button_width) / 2;
 
-
-            // Create OK button
+            // Create OK button centered below the text using WC_BUTTONA (Common Controls)
+            int ok_button_x = (dlgW - button_width) / 2;
+            int ok_button_y = margin + text_height + button_spacing;
             CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_OK_ANSI,         // Text
-                WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, // Styles (BS_DEFPUSHBUTTON makes it the default button)
-                ok_button_x, margin + textSize.cy + button_spacing, button_width, button_height, // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDOK,            // Control ID (predefined)
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
+                WC_BUTTONA,               // Class name (Common Controls Button)
+                (LPCSTR)STRING_OK_ANSI, // Explicitly cast to LPCSTR
+                WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP,
+                ok_button_x, ok_button_y,
+                button_width, button_height,
+                hwnd,
+                (HMENU)IDOK,
+                hInst,
+                NULL
             );
             DebugPrint("AboutModalDialogProc: OK button created.\n");
+
 
             // Resize the dialog window to fit the calculated size
             SetWindowPos(hwnd, NULL, 0, 0, dlgW, dlgH, SWP_NOMOVE | SWP_NOZORDER);
@@ -914,7 +994,6 @@ LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
 
             SelectObject(hdc, hOldFont);
             ReleaseDC(hwnd, hdc);
-
             break;
         }
 
@@ -938,7 +1017,11 @@ LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
 
         case WM_DESTROY:
             DebugPrint("AboutModalDialogProc: WM_DESTROY received.\n");
-            // No specific cleanup needed for controls
+            if (hSansFont) {
+                DebugPrint("AboutModalDialogProc: Deleting font object.\n");
+                DeleteObject(hSansFont);
+                hSansFont = NULL;
+            }
             break;
 
         default:
@@ -961,8 +1044,9 @@ void ShowModalAboutDialog(HWND hwndParent) {
         wc.lpfnWndProc     = AboutModalDialogProc; // Use the about modal dialog procedure
         wc.hInstance       = hInst; // Use the global instance handle
         wc.lpszClassName = ABOUT_DIALOG_CLASS_NAME_ANSI; // Use the new class name
+        // Use COLOR_3DFACE for the background brush for a 3D look
+        wc.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
         wc.hCursor         = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
-        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background
         // No lpszMenuName for a dialog
 
         DebugPrint("ShowModalAboutDialog: Registering about dialog class.\n");
@@ -981,54 +1065,31 @@ void ShowModalAboutDialog(HWND hwndParent) {
     GetWindowRect(hwndParent, &rcParent);
 
     // --- Calculate required dialog width and height before creating the window ---
-    // This ensures the window is created with the correct initial size for centering.
-    // Note: The WM_CREATE handler will also calculate and potentially adjust the size
-    // based on the font actually used by the dialog, which is more accurate.
+    // This initial size is an estimate. The WM_CREATE handler will calculate the
+    // precise size based on the actual font used and resize the window.
 
-    // Measure the width/height of the static text using the default GUI font
-    HDC hdc = GetDC(NULL); // Get DC for the screen to measure text before dialog is created
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
-
-    SIZE textSize;
-    GetTextExtentPoint32A(hdc, STRING_ABOUT_TEXT_ANSI, strlen(STRING_ABOUT_TEXT_ANSI), &textSize);
-
-    SelectObject(hdc, hOldFont);
-    ReleaseDC(NULL, hdc); // Release screen DC
-
-    // Define dimensions and spacing (matching WM_CREATE)
-    const int margin = 20;
-    const int button_width = 75;
-    const int button_height = 25;
-    const int button_spacing = 15;
-
-    // Calculate dialog width and height (matching WM_CREATE)
-    // Width: Max of text width and button width + margins
-    int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
-    // Reduce padding/buffer slightly to reduce overall width
-    int dlgW = required_content_width + margin * 2 + 10; // Reduced buffer
-
-    // Height: Top margin + text height + spacing + button height + bottom margin
-    int dlgH = margin + textSize.cy + button_spacing + button_height + margin + 10; // Added buffer slightly
-
+    // Use a reasonable default size for initial creation
+    int dlgW = 300; // Estimate width
+    // Increased initial height estimate further to accommodate larger bottom margin
+    int dlgH = 400; // Increased estimate height
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
     int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-    DebugPrint("ShowModalAboutDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
+     DebugPrint("ShowModalAboutDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
 
 
     // Create the modal dialog window
     HWND hDlg = CreateWindowA(
         ABOUT_DIALOG_CLASS_NAME_ANSI, // Window class (ANSI)
         STRING_ABOUT_TITLE_ANSI, // Window title (ANSI)
-        WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME, // Styles for a modal dialog
+        WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_3DLOOK, // Styles for a modal dialog, added DS_3DLOOK
         x, y, dlgW, dlgH, // Size and position (using calculated initial size)
         hwndParent, // Parent window
         NULL,       // Menu
         hInst,      // Instance handle
         NULL        // Additional application data
     );
-    DebugPrint("ShowModalAboutDialog: CreateWindowA returned %p.\n", hDlg);
+     DebugPrint("ShowModalAboutDialog: CreateWindowA returned %p.\n", hDlg);
 
 
     if (!hDlg) {
@@ -1059,7 +1120,7 @@ void ShowModalAboutDialog(HWND hwndParent) {
             DispatchMessageA(&msg);
         }
     }
-    DebugPrint("ShowModalAboutDialog: Exited modal message loop.\n");
+    DebugPrint("ShowModalAboutDialog: Exited message loop.\n");
 
 
     // Re-enable parent window
@@ -1237,48 +1298,79 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 "Courier New");         // Font name (ANSI)
 
             if (hMonoFont == NULL) {
-                MessageBoxA(hwnd, STRING_FONT_ERROR_ANSI, "Font Error", MB_OK | MB_ICONWARNING);
+                 MessageBoxA(hwnd, STRING_FONT_ERROR_ANSI, "Font Error", MB_OK | MB_ICONWARNING);
             }
+
+            // --- Create Label Font (System Sans-Serif, Italic) ---
+            NONCLIENTMETRICSA ncm = { sizeof(NONCLIENTMETRICSA) };
+            SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
+            ncm.lfMessageFont.lfItalic = TRUE; // Set italic flag
+            hLabelFont = CreateFontIndirectA(&ncm.lfMessageFont);
+            DebugPrint("WM_CREATE: Created italic label font.\n");
+
 
             // --- Create Menu ---
             HMENU hMenubar = CreateMenu();
             HMENU hMenuFile = CreateMenu();
+            HMENU hMenuEdit = CreateMenu(); // Create Edit menu
             HMENU hMenuHelp = CreateMenu(); // Create Help menu
 
+            // File Menu
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_NEW, STRING_ACTION_NEW_ANSI); // Added New menu item
             AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL); // Separator after New
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_OPEN, STRING_ACTION_OPEN_ANSI); // Added Open menu item
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_RUN, STRING_ACTION_RUN_ANSI);
-            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_COPYOUTPUT, STRING_ACTION_COPY_ANSI);
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_COPYOUTPUT, STRING_ACTION_COPY_ANSI); // Keep existing Copy Output
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_CLEAROUTPUT, STRING_ACTION_CLEAROUTPUT_ANSI); // Added Clear Output menu item
             AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL);
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_SETTINGS, STRING_ACTION_SETTINGS_ANSI); // Added Settings menu item
             AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL);
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_EXIT, STRING_ACTION_EXIT_ANSI); // Updated menu text
 
-            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuFile, STRING_FILE_MENU_ANSI);
+            // Edit Menu
+            AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_CUT, STRING_ACTION_CUT_ANSI);
+            AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_COPY, STRING_ACTION_COPY_ANSI_EDIT); // Use specific Copy string for Edit menu
+            AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, STRING_ACTION_PASTE_ANSI);
+            AppendMenuA(hMenuEdit, MF_SEPARATOR, 0, NULL);
+            AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_SELECTALL, STRING_ACTION_SELECTALL_ANSI);
 
-            // Add About to Help menu
+
+            // Help Menu
             AppendMenuA(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, STRING_ACTION_ABOUT_ANSI); // Added About menu item
-            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuHelp, STRING_HELP_MENU_ANSI); // Append Help menu to menubar
+
+            // Append menus to menubar
+            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuFile, STRING_FILE_MENU_ANSI);
+            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuEdit, STRING_EDIT_MENU_ANSI); // Append Edit menu
+            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuHelp, STRING_HELP_MENU_ANSI); // Append Help menu
 
 
             SetMenu(hwnd, hMenubar);
 
             // --- Create Controls ---
-            // Labels (STATIC)
-            // These will use the default system font
-            CreateWindowA("STATIC", STRING_CODE_HELP_ANSI, WS_CHILD | WS_VISIBLE,
-                        10, 10, 100, 20, hwnd, (HMENU)IDC_STATIC_CODE, hInst, NULL);
-            CreateWindowA("STATIC", STRING_INPUT_HELP_ANSI, WS_CHILD | WS_VISIBLE,
-                        10, 170, 150, 20, hwnd, (HMENU)IDC_STATIC_INPUT, hInst, NULL);
-            CreateWindowA("STATIC", STRING_OUTPUT_HELP_ANSI, WS_CHILD | WS_VISIBLE,
-                        10, 300, 150, 20, hwnd, (HMENU)IDC_STATIC_OUTPUT, hInst, NULL);
+            // Labels (STATIC) - Use WC_STATICA and apply the label font
+            HWND hStaticCode = CreateWindowA(WC_STATICA, STRING_CODE_HELP_ANSI, WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP,
+                          10, 10, 100, 20, hwnd, (HMENU)IDC_STATIC_CODE, hInst, NULL);
+            if (hLabelFont && hStaticCode) {
+                SendMessageA(hStaticCode, WM_SETFONT, (WPARAM)hLabelFont, MAKELPARAM(TRUE, 0));
+            }
 
-            // Edit Controls (EDIT)
+            HWND hStaticInput = CreateWindowA(WC_STATICA, STRING_INPUT_HELP_ANSI, WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP,
+                          10, 170, 150, 20, hwnd, (HMENU)IDC_STATIC_INPUT, hInst, NULL);
+             if (hLabelFont && hStaticInput) {
+                SendMessageA(hStaticInput, WM_SETFONT, (WPARAM)hLabelFont, MAKELPARAM(TRUE, 0));
+            }
+
+            HWND hStaticOutput = CreateWindowA(WC_STATICA, STRING_OUTPUT_HELP_ANSI, WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP,
+                          10, 300, 150, 20, hwnd, (HMENU)IDC_STATIC_OUTPUT, hInst, NULL);
+             if (hLabelFont && hStaticOutput) {
+                SendMessageA(hStaticOutput, WM_SETFONT, (WPARAM)hLabelFont, MAKELPARAM(TRUE, 0));
+            }
+
+
+            // Edit Controls (EDIT) - Use WC_EDITA and ensure proper styles
             // Code Input - Apply monospaced font
             hwndCodeEdit = CreateWindowExA(
-                WS_EX_CLIENTEDGE, "EDIT", "",
+                WS_EX_CLIENTEDGE, WC_EDITA, "", // Use WC_EDITA, WS_EX_CLIENTEDGE provides the border
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 35, 560, 125, hwnd, (HMENU)IDC_EDIT_CODE, hInst, NULL);
             if (hMonoFont) {
@@ -1288,18 +1380,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             // Standard Input - Apply monospaced font
             hwndInputEdit = CreateWindowExA(
-                WS_EX_CLIENTEDGE, "EDIT", "",
+                WS_EX_CLIENTEDGE, WC_EDITA, "", // Use WC_EDITA, WS_EX_CLIENTEDGE provides the border
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
             if (hMonoFont) {
                 SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
             }
 
-            // Standard Output (Edit control with ES_READONLY) - Apply monospaced font
-            // Added ES_READONLY style as suggested by Gemini Pro
+            // Standard Output (Edit control - NOW READ-WRITE) - Apply monospaced font
+            // Removed ES_READONLY style
             hwndOutputEdit = CreateWindowExA(
-                WS_EX_CLIENTEDGE, "EDIT", "",
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
+                WS_EX_CLIENTEDGE, WC_EDITA, "", // Use WC_EDITA, WS_EX_CLIENTEDGE provides the border
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL, // Removed ES_READONLY
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL); // Reverted to IDC_EDIT_OUTPUT
             if (hMonoFont) {
                 SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to edit control
@@ -1321,7 +1413,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowTextA(hwndOutputEdit, ""); // Set text for the edit control
 
             // The monospaced font is applied to the edit controls above.
-            // Other controls (labels, buttons) will use the system default font automatically.
+            // The label font is applied to the static controls above.
 
             SetFocus(hwndCodeEdit);
             break; // End of WM_CREATE
@@ -1456,14 +1548,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         }
                         else
                         {
-                            char error_msg[256];
-                            sprintf_s(error_msg, sizeof(error_msg), "IDM_FILE_OPEN: Error creating file handle: %lu\n", GetLastError());
-                            DebugPrint(error_msg);
-                            MessageBoxA(hwnd, "Error opening file.", "File Error", MB_OK | MB_ICONERROR);
+                             char error_msg[256];
+                             // Use sprintf_s for safety
+                             sprintf_s(error_msg, sizeof(error_msg), "IDM_FILE_OPEN: Error creating file handle: %lu\n", GetLastError());
+                             DebugPrint(error_msg);
+                             MessageBoxA(hwnd, "Error opening file.", "File Error", MB_OK | MB_ICONERROR);
                         }
                     } else {
-                        DebugPrint("IDM_FILE_OPEN: File selection cancelled or failed.\n");
-                        // User cancelled or an error occurred (can check CommDlgExtendedError())
+                         DebugPrint("IDM_FILE_OPEN: File selection cancelled or failed.\n");
+                         // User cancelled or an error occurred (can check CommDlgExtendedError())
                     }
                     break;
                 }
@@ -1497,7 +1590,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                         int input_len = GetWindowTextLengthA(hwndInputEdit);
                         char* input = (char*)malloc((input_len + 1) * sizeof(char));
-                        if (!input) {
+                         if (!input) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for input.\n");
                             SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_INPUT_ANSI);
                             free(code); // Free previously allocated code
@@ -1523,12 +1616,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         // Allocate output buffer
                         params->output_buffer = (char*)malloc(OUTPUT_BUFFER_SIZE);
                         if (!params->output_buffer) {
-                            DebugPrint("IDM_FILE_RUN: Memory allocation failed for output buffer.\n");
-                            SetWindowTextA(hwndOutputEdit, "Error: Memory allocation failed for output buffer.\r\n");
-                            free(code);
-                            free(input);
-                            free(params);
-                            break;
+                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for output buffer.\n");
+                             SetWindowTextA(hwndOutputEdit, "Error: Memory allocation failed for output buffer.\r\n");
+                             free(code);
+                             free(input);
+                             free(params);
+                             break;
                         }
                         params->output_buffer_pos = 0;
                         // Removed initialization of current_output_text and current_output_len
@@ -1544,6 +1637,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // Handle thread creation failure
                             g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
                             char error_msg[256];
+                            // Use sprintf_s for safety
                             sprintf_s(error_msg, sizeof(error_msg), "IDM_FILE_RUN: CreateThread failed with error %lu\n", GetLastError());
                             DebugPrint(error_msg);
                             SetWindowTextA(hwndOutputEdit, STRING_THREAD_ERROR_ANSI);
@@ -1561,7 +1655,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         }
                     } else {
                         DebugPrint("IDM_FILE_RUN: Interpreter already running.\n");
-                        // Optionally, display a message that interpreter is already running
+                        // Optional: Display a message that interpreter is already running
                         // AppendText(hwndOutputEdit, "--- Interpreter is already running ---\r\n");
                     }
                     break; // Break for IDM_FILE_RUN case
@@ -1573,7 +1667,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // For an edit control, we can get the entire text
                     int textLen = GetWindowTextLengthA(hwndOutputEdit);
                     if (textLen > 0) {
-                        DebugPrint("IDM_FILE_COPYOUTPUT: Output text length > 0.\n");
+                         DebugPrint("IDM_FILE_COPYOUTPUT: Output text length > 0.\n");
                         // Need +1 for null terminator
                         HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, textLen + 1);
                         if (hGlobal) {
@@ -1581,6 +1675,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             char* pText = (char*)GlobalLock(hGlobal);
                             if(pText) {
                                 DebugPrint("IDM_FILE_COPYOUTPUT: GlobalLock succeeded.\n");
+                                // Use GetWindowTextA which is safe
                                 GetWindowTextA(hwndOutputEdit, pText, textLen + 1);
                                 GlobalUnlock(hGlobal);
                                 DebugPrint("IDM_FILE_COPYOUTPUT: Text copied to global memory.\n");
@@ -1602,7 +1697,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 }
                             } else {
                                 DebugPrint("IDM_FILE_COPYOUTPUT: Failed to lock memory.\n");
-                                MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_LOCK_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
+                                 MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_LOCK_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
                             }
                             // If hGlobal is not NULL here, it means SetClipboardData failed or
                             // was not called, so we should free the memory we allocated.
@@ -1610,10 +1705,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 DebugPrint("IDM_FILE_COPYOUTPUT: Freeing global memory.\n");
                                 GlobalFree(hGlobal);
                             }
-                        } else {
-                            DebugPrint("IDM_FILE_COPYOUTPUT: Failed to allocate global memory.\n");
-                            MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_ALLOC_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
-                        }
+                         } else {
+                             DebugPrint("IDM_FILE_COPYOUTPUT: Failed to allocate global memory.\n");
+                             MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_ALLOC_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
+                         }
                     } else {
                         DebugPrint("IDM_FILE_COPYOUTPUT: Output text length is 0.\n");
                         // Optional: Notify user if there's nothing to copy
@@ -1622,37 +1717,79 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     break; // Break for IDM_FILE_COPYOUTPUT case
                 } // End brace for IDM_FILE_COPYOUTPUT scope
 
-                case IDM_FILE_CLEAROUTPUT:
-                {
-                    DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
-                    DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output edit (handle %p).\n", (void*)hwndOutputEdit);
+                 case IDM_FILE_CLEAROUTPUT:
+                 {
+                     DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output edit (handle %p).\n", (void*)hwndOutputEdit);
 
-                    // Temporarily disable redrawing
-                    SendMessageA(hwndOutputEdit, WM_SETREDRAW, FALSE, 0);
-                    DebugPrint("IDM_FILE_CLEAROUTPUT: Disabled redrawing.\n");
+                     // Temporarily disable redrawing
+                     SendMessageA(hwndOutputEdit, WM_SETREDRAW, FALSE, 0);
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Disabled redrawing.\n");
 
-                    // Clear the text
-                    SetWindowTextA(hwndOutputEdit, "");
-                    DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared.\n");
+                     // Clear the text
+                     SetWindowTextA(hwndOutputEdit, "");
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared.\n");
 
-                    // Re-enable redrawing and force a repaint
-                    SendMessageA(hwndOutputEdit, WM_SETREDRAW, TRUE, 0);
-                    DebugPrint("IDM_FILE_CLEAROUTPUT: Enabled redrawing.\n");
+                     // Re-enable redrawing and force a repaint
+                     SendMessageA(hwndOutputEdit, WM_SETREDRAW, TRUE, 0);
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Enabled redrawing.\n");
 
-                    RECT rcClient;
-                    GetClientRect(hwndOutputEdit, &rcClient);
-                    InvalidateRect(hwndOutputEdit, &rcClient, TRUE); // Invalidate and erase background
-                    UpdateWindow(hwndOutputEdit); // Force immediate paint
+                     RECT rcClient;
+                     GetClientRect(hwndOutputEdit, &rcClient);
+                     InvalidateRect(hwndOutputEdit, &rcClient, TRUE); // Invalidate and erase background
+                     UpdateWindow(hwndOutputEdit); // Force immediate paint
 
-                    DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
 
-                    break;
-                }
+                     break;
+                 }
 
                 case IDM_FILE_EXIT:
                     DebugPrint("WM_COMMAND: IDM_FILE_EXIT received.\n");
                     DestroyWindow(hwnd);
                     break;
+
+                case IDM_EDIT_CUT:
+                {
+                    DebugPrint("WM_COMMAND: IDM_EDIT_CUT received.\n");
+                    HWND hFocusedWnd = GetFocus(); // Get the window with focus
+                    if (hFocusedWnd) {
+                        // Send WM_CUT message to the focused control
+                        SendMessage(hFocusedWnd, WM_CUT, 0, 0);
+                        DebugPrint("WM_COMMAND: WM_CUT sent to focused window %p.\n", (void*)hFocusedWnd);
+                    } else {
+                         DebugPrint("WM_COMMAND: IDM_EDIT_CUT - No window has focus.\n");
+                    }
+                    break;
+                }
+
+                case IDM_EDIT_COPY:
+                {
+                    DebugPrint("WM_COMMAND: IDM_EDIT_COPY received.\n");
+                    HWND hFocusedWnd = GetFocus(); // Get the window with focus
+                    if (hFocusedWnd) {
+                        // Send WM_COPY message to the focused control
+                        SendMessage(hFocusedWnd, WM_COPY, 0, 0);
+                        DebugPrint("WM_COMMAND: WM_COPY sent to focused window %p.\n", (void*)hFocusedWnd);
+                    } else {
+                         DebugPrint("WM_COMMAND: IDM_EDIT_COPY - No window has focus.\n");
+                    }
+                    break;
+                }
+
+                case IDM_EDIT_PASTE:
+                {
+                    DebugPrint("WM_COMMAND: IDM_EDIT_PASTE received.\n");
+                    HWND hFocusedWnd = GetFocus(); // Get the window with focus
+                    if (hFocusedWnd) {
+                        // Send WM_PASTE message to the focused control
+                        SendMessage(hFocusedWnd, WM_PASTE, 0, 0);
+                        DebugPrint("WM_COMMAND: IDM_EDIT_PASTE sent to focused window %p.\n", (void*)hFocusedWnd);
+                    } else {
+                         DebugPrint("WM_COMMAND: IDM_EDIT_PASTE - No window has focus.\n");
+                    }
+                    break;
+                }
 
                 case IDM_EDIT_SELECTALL: // Handle the single Select All ID
                 {
@@ -1728,22 +1865,22 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_MBUTTONDOWN:
         case WM_MOUSEMOVE:
         {
-            // Let the default window procedure handle mouse messages for selection in ES_READONLY control
-            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+             // Let the default window procedure handle mouse messages for selection in ES_READONLY control
+             return DefWindowProcA(hwnd, uMsg, wParam, lParam);
         }
 
 
         case WM_CTLCOLORSTATIC:
         {
-            HDC hdcStatic = (HDC)wParam;
-            // Make label background transparent to match window background
-            SetBkMode(hdcStatic, TRANSPARENT);
-            // Return a NULL_BRUSH handle to prevent background painting
-            return (LRESULT)GetStockObject(NULL_BRUSH);
+             HDC hdcStatic = (HDC)wParam;
+             // Make label background transparent to match window background
+             SetBkMode(hdcStatic, TRANSPARENT);
+             // Return a NULL_BRUSH handle to prevent background painting
+             return (LRESULT)GetStockObject(NULL_BRUSH);
         }
         // Note: No 'break' needed after return
 
-        case WM_APP_INTERPRETER_OUTPUT_STRING: {
+         case WM_APP_INTERPRETER_OUTPUT_STRING: {
             // Append a string to output edit control (used for error messages and buffered output) (ANSI)
             DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING received.\n");
             HWND hEdit = hwndOutputEdit; // Use the handle for the edit control
@@ -1771,29 +1908,29 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Freed string memory.\n");
             }
             return 0;
-        }
+         }
 
 
-        case WM_APP_INTERPRETER_DONE: {
-            DebugPrint("WM_APP_INTERPRETER_DONE received.\n");
-            // Interpreter thread finished
-            g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
-            // wParam indicates status: 0 for success, 1 for error
+         case WM_APP_INTERPRETER_DONE: {
+             DebugPrint("WM_APP_INTERPRETER_DONE received.\n");
+             // Interpreter thread finished
+             g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
+             // wParam indicates status: 0 for success, 1 for error
 
-            if (wParam == 0) {
-                DebugPrint("WM_APP_INTERPRETER_DONE: Status = Success.\n");
-                // Success (output is already updated via WM_APP_INTERPRETER_OUTPUT_STRING)
-                // Optionally, display a "Done" message
-                // MessageBoxA(hwnd, "Interpretation finished successfully.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
-            } else {
-                DebugPrint("WM_APP_INTERPRETER_DONE: Status = Error.\n");
-                // Error message is already posted via WM_APP_INTERPRETER_OUTPUT_STRING
-                // Optionally, display an "Error" message box
-                // MessageBoxA(hwnd, "Interpretation finished with errors.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONERROR);
-            }
+             if (wParam == 0) {
+                 DebugPrint("WM_APP_INTERPRETER_DONE: Status = Success.\n");
+                 // Success (output is already updated via WM_APP_INTERPRETER_OUTPUT_STRING)
+                 // Optionally, display a "Done" message
+                 // MessageBoxA(hwnd, "Interpretation finished successfully.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
+             } else {
+                 DebugPrint("WM_APP_INTERPRETER_DONE: Status = Error.\n");
+                 // Error message is already posted via WM_APP_INTERPRETER_OUTPUT_STRING
+                 // Optionally, display an "Error" message box
+                 // MessageBoxA(hwnd, "Interpretation finished with errors.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONERROR);
+             }
 
-            return 0;
-        }
+             return 0;
+         }
 
 
         case WM_CLOSE:
@@ -1804,7 +1941,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case WM_DESTROY:
             DebugPrint("WM_DESTROY received.\n");
-            // Signal the interpreter thread to stop if it's running
+             // Signal the interpreter thread to stop if it's running
             g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
             // It's generally not recommended to block the UI thread waiting for a worker thread
             // in WM_DESTROY in a real application, as it can make the application
@@ -1816,6 +1953,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DebugPrint("WM_DESTROY: Deleting font object.\n");
                 DeleteObject(hMonoFont); // Clean up the font object
                 hMonoFont = NULL;
+            }
+            if (hLabelFont) { // New: Clean up the label font object
+                DebugPrint("WM_DESTROY: Deleting label font object.\n");
+                DeleteObject(hLabelFont);
+                hLabelFont = NULL;
             }
             PostQuitMessage(0); // End the message loop
             DebugPrint("WM_DESTROY: Posted WM_QUIT.\n");
@@ -1836,12 +1978,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Store instance handle in our global variable
     hInst = hInstance;
 
-    // Initialize Common Controls
+    // Initialize Common Controls - Corrected initialization as per DeepSeek suggestion
     INITCOMMONCONTROLSEX iccex;
-    iccex.dwSize = sizeof(iccex);
-    iccex.dwICC = ICC_STANDARD_CLASSES; // Initialize standard control classes
-    InitCommonControlsEx(&iccex);
-    DebugPrint("WinMain: Initialized Common Controls.\n");
+    iccex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    // Include ICC_USEREX_CLASSES for extended controls if needed, and ICC_WIN95_CLASSES for 3D look
+    iccex.dwICC = ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES | ICC_USEREX_CLASSES;
+    DebugPrint("WinMain: Initializing Common Controls with ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES | ICC_USEREX_CLASSES.\n");
+    if (!InitCommonControlsEx(&iccex)) {
+        DWORD dwError = GetLastError(); // Get the specific error code
+        char error_msg[256];
+        sprintf_s(error_msg, sizeof(error_msg), "Common controls initialization failed! Error code: %lu", dwError);
+        DebugPrint("WinMain: Common Controls initialization failed. GetLastError: %lu\n", dwError);
+        MessageBoxA(NULL, error_msg, "Error", MB_ICONERROR);
+        return 1; // Return failure code
+    } else {
+        DebugPrint("WinMain: Common Controls initialized successfully.\n");
+    }
+
 
     // Load debug settings from the registry at program start
     LoadDebugSettingsFromRegistry();
@@ -1857,9 +2010,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.lpfnWndProc     = WindowProc;
     wc.hInstance       = hInstance;
     wc.lpszClassName = MAIN_WINDOW_CLASS_NAME;
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Standard window background brush for 3D look
+    // Use COLOR_3DFACE for the background brush for a 3D look
+    wc.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
     wc.hCursor         = LoadCursor(NULL, IDC_ARROW);
     wc.lpszMenuName  = NULL; // We will create menu programmatically
+    // Add CS_HREDRAW | CS_VREDRAW for proper redrawing on resize
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+
 
     DebugPrint("WinMain: Registering main window class.\n");
     if (!RegisterClassA(&wc)) // Use RegisterClassA for ANSI
@@ -1880,11 +2037,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ACCEL AccelTable[] = {
         {FVIRTKEY | FCONTROL, 'N', IDM_FILE_NEW}, // Ctrl+N for New
         {FVIRTKEY | FCONTROL, 'R', IDM_FILE_RUN},
-        {FVIRTKEY | FCONTROL, 'C', IDM_FILE_COPYOUTPUT},
+        {FVIRTKEY | FCONTROL | FSHIFT, 'C', IDA_FILE_COPYOUTPUT}, // Ctrl+Shift+C for Copy Output
         {FVIRTKEY | FCONTROL, 'X', IDM_FILE_EXIT}, // Accelerator for Exit
         {FVIRTKEY | FCONTROL, 'O', IDM_FILE_OPEN},  // Accelerator for Open
         {FVIRTKEY | FCONTROL, 'A', IDM_EDIT_SELECTALL}, // Ctrl+A for Select All
-        {FVIRTKEY | FCONTROL, VK_F1, IDM_HELP_ABOUT} // Ctrl+F1 for About
+        {FVIRTKEY | FCONTROL, VK_F1, IDM_HELP_ABOUT}, // Ctrl+F1 for About
+        {FVIRTKEY | FCONTROL, 'X', IDM_EDIT_CUT}, // Ctrl+X for Cut
+        {FVIRTKEY | FCONTROL, 'C', IDM_EDIT_COPY}, // Ctrl+C for Copy
+        {FVIRTKEY | FCONTROL, 'V', IDM_EDIT_PASTE} // Ctrl+V for Paste
     };
 
     // Create the accelerator table from the structure
@@ -1936,7 +2096,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         // Check if the message is for a dialog box. If so, let the dialog handle it.
         // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
         if (!IsDialogMessage(GetActiveWindow(), &msg)) {
-            // Translate accelerator keys before dispatching the message
+             // Translate accelerator keys before dispatching the message
             if (!TranslateAcceleratorA(msg.hwnd, hAccelTable, &msg)) {
                 TranslateMessage(&msg);
                 DispatchMessageA(&msg); // Use DispatchMessageA
@@ -1954,4 +2114,3 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     DebugPrint("WinMain finished.\n");
     return (int)msg.wParam;
 }
-
