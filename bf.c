@@ -764,21 +764,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     size_t title_string_size_wide = (title_len_wide + 1) * sizeof(WCHAR);
 
                     // Calculate total required size, ensuring proper alignment between sections.
-                    // The structure is DWORD aligned. Menu follows, WORD aligned. Class follows, WORD aligned.
-                    // Title follows, WORD aligned.
                     size_t current_offset = template_base_size;
 
-                    // Align for menu
+                    // Align for menu (WORD alignment)
                     current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1);
                     size_t offset_menu = current_offset;
                     current_offset += menu_size;
 
-                    // Align for class
+                    // Align for class (WORD alignment)
                     current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1);
                     size_t offset_class = current_offset;
                     current_offset += class_size;
 
-                    // Align for title
+                    // Align for title (WORD alignment)
                     current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1);
                     size_t offset_title = current_offset;
                     current_offset += title_string_size_wide;
