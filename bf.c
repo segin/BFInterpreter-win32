@@ -867,52 +867,52 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     header_size += title_string_size_wide;
 
                     // Calculate size for each control item template and its data
-                    size_t control_item_size = sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
-                    size_t control_data_size = 0;
+                    size_t control_item_base_size = sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    size_t control_data_total_size = 0;
 
                     // Checkbox 1: Class (string), Title (string), No Creation Data
-                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
-                    control_data_size += (debug_interp_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
-                    control_data_size += sizeof(WORD); // Creation data size (0)
+                    control_data_total_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_total_size += (debug_interp_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_total_size += sizeof(WORD); // Creation data size (0)
 
                      // Checkbox 2: Class (string), Title (string), No Creation Data
-                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
-                    control_data_size += (debug_output_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
-                    control_data_size += sizeof(WORD); // Creation data size (0)
+                    control_data_total_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_total_size += (debug_output_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_total_size += sizeof(WORD); // Creation data size (0)
 
                     // Checkbox 3: Class (string), Title (string), No Creation Data
-                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
-                    control_data_size += (debug_basic_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
-                    control_data_size += sizeof(WORD); // Creation data size (0)
+                    control_data_total_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_total_size += (debug_basic_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_total_size += sizeof(WORD); // Creation data size (0)
 
                     // OK Button: Class (string), Title (string), No Creation Data
-                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
-                    control_data_size += (ok_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
-                    control_data_size += sizeof(WORD); // Creation data size (0)
+                    control_data_total_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_total_size += (ok_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_total_size += sizeof(WORD); // Creation data size (0)
 
                     // Cancel Button: Class (string), Title (string), No Creation Data
-                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
-                    control_data_size += (cancel_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
-                    control_data_size += sizeof(WORD); // Creation data size (0)
+                    control_data_total_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_total_size += (cancel_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_total_size += sizeof(WORD); // Creation data size (0)
 
 
                     // Total size = header size + (number of controls * aligned control item size) + total control data size
                     // Each DLGITEMTEMPLATEEX must be DWORD aligned.
                     size_t total_controls = 5; // 3 checkboxes + 2 buttons
-                    size_t total_control_items_size = 0;
+                    size_t total_control_items_aligned_size = 0;
                     for (size_t i = 0; i < total_controls; ++i) {
-                         total_control_items_size += (sizeof(MY_DLGITEMTEMPLATEEX_WIDE) + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
+                         total_control_items_aligned_size += (sizeof(MY_DLGITEMTEMPLATEEX_WIDE) + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
                     }
 
 
-                    size_t total_template_size = header_size + total_control_items_size + control_data_size;
+                    size_t total_template_size = header_size + total_control_items_aligned_size + control_data_total_size;
 
                     // Ensure the final size is DWORD aligned
                     total_template_size = (total_template_size + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
 
 
                     DebugPrint("IDM_FILE_SETTINGS: Calculated total template size: %zu\n", total_template_size);
-                    DebugPrint("IDM_FILE_SETTINGS: Header size: %zu, Total control items size: %zu, Total control data size: %zu\n", header_size, total_control_items_size, control_data_size);
+                    DebugPrint("IDM_FILE_SETTINGS: Header size: %zu, Total control items aligned size: %zu, Total control data size: %zu\n", header_size, total_control_items_aligned_size, control_data_total_size);
 
 
                     // Allocate memory for the combined template and data
@@ -978,6 +978,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             #define ADD_CONTROL_ITEM(id, class_wide, text_wide, x, y, cx, cy, style, exStyle) \
                             { \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1)); /* DWORD align */ \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 MY_DLGITEMTEMPLATEEX_WIDE item_template = { \
                                     0, /* helpID */ \
                                     exStyle, \
@@ -990,6 +991,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 \
                                 /* Copy Class Name (string) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemClass = (LPWSTR)pCurrent; \
                                 size_t item_class_len = wcslen(class_wide) + 1; \
                                 memcpy(pItemClass, class_wide, item_class_len * sizeof(WCHAR)); \
@@ -997,6 +999,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 \
                                 /* Copy Title (string) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemText = (LPWSTR)pCurrent; \
                                 size_t item_text_len = wcslen(text_wide) + 1; \
                                 memcpy(pItemText, text_wide, item_text_len * sizeof(WCHAR)); \
@@ -1004,10 +1007,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 \
                                 /* Creation Data (always 0 size for standard controls) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
                                 LPWORD pCreationDataSize = (LPWORD)pCurrent; \
                                 *pCreationDataSize = 0; /* Size of creation data */ \
                                 pCurrent += sizeof(WORD); \
-                                DebugPrint("IDM_FILE_SETTINGS: Added control ID %u.\n", id); \
+                                DebugPrint("IDM_FILE_SETTINGS: Finished adding control ID %u. Current offset: %zu\n", id, pCurrent - pGlobalTemplate); \
                             }
 
 
