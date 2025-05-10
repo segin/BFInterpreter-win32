@@ -616,6 +616,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP, // Styles for static control
                 10, 325, 560, 150, hwnd, (HMENU)IDC_STATIC_OUTPUT_DISPLAY, hInst, NULL); // Use new ID
 
+            // --- Debug Print: Check the class name of the created output control ---
+            char class_name[256];
+            GetClassNameA(hwndOutputDisplay, class_name, sizeof(class_name));
+            DebugPrint("WM_CREATE: Created output control with handle %p and class name '%s'.\n", (void*)hwndOutputDisplay, class_name);
+
 
             // Set initial text (ANSI)
             SetWindowTextA(hwndCodeEdit, STRING_CODE_TEXT_ANSI);
@@ -1012,6 +1017,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     if (!g_bInterpreterRunning) {
                         DebugPrint("IDM_FILE_RUN: Interpreter not running, attempting to start.\n");
                         // Clear previous output by setting static control text to empty
+                        DebugPrint("IDM_FILE_RUN: Clearing output display (handle %p).\n", (void*)hwndOutputDisplay);
                         SetWindowTextA(hwndOutputDisplay, "");
 
                         // Get code and input text (ANSI)
@@ -1158,6 +1164,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                  {
                      DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
                      // Clear the text in the static output control
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output display (handle %p).\n", (void*)hwndOutputDisplay);
                      SetWindowTextA(hwndOutputDisplay, "");
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared. Forcing repaint.\n");
 
@@ -1222,6 +1229,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             LPCSTR szString = (LPCSTR)lParam; // Assuming lParam is a valid string pointer
 
             if (szString) {
+                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Updating static control with handle %p.\n", (void*)hStatic);
                 // Get current text from the static control
                 int current_len = GetWindowTextLengthA(hStatic);
                 int new_chunk_len = strlen(szString);
