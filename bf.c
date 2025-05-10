@@ -1536,8 +1536,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!RegisterClassA(&wcBlank)) // Use RegisterClassA for ANSI
     {
         DebugPrint("WinMain: Blank window registration failed.\n");
-        // You might want a different error message here
-        MessageBoxA(NULL, "Blank Window Registration Failed!", "Error", MB_ICONEXCLCLAMATION | MB_OK);
+        // Corrected typo here: MB_ICONEXCLCLAMATION -> MB_ICONEXCLAMATION
+        MessageBoxA(NULL, "Blank Window Registration Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
         // Don't return, let the main window still try to create
     }
     DebugPrint("WinMain: Blank window class registered successfully.\n");
@@ -1556,7 +1556,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     };
 
     // Create the accelerator table from the structure
-    hAccelTable = CreateAcceleratorTableA(AccelTable, sizeof(AccelTable) / sizeof(ACCEL));
+    hAccelTable = CreateAcceleratorTableA(AccelTable, sizeof(AccelTable) / sizeof(ACCel));
 
     if (hAccelTable == NULL) {
         DebugPrint("WinMain: Failed to create accelerator table.\n");
