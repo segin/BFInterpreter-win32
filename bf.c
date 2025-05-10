@@ -1159,14 +1159,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                  case IDM_FILE_CLEAROUTPUT:
                  {
                      DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
-                     SetWindowTextA(hwndOutputEdit, ""); // Clear the text in the output edit control
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared. Forcing repaint.\n");
 
-                     // Attempt to force a clean repaint
-                     InvalidateRect(hwndOutputEdit, NULL, TRUE); // Invalidate and erase background
-                     UpdateWindow(hwndOutputEdit); // Force immediate paint
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
+                     // Temporarily remove ES_READONLY to allow text modification
+                     LONG_PTR style = GetWindowLongPtrA(hwndOutputEdit, GWL_STYLE);
+                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style & ~ES_READONLY);
 
+                     SetWindowTextA(hwndOutputEdit, ""); // Clear the text
+
+                     // Restore ES_READONLY style
+                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style);
+
+                     // Force redraw
+                     InvalidateRect(hwndOutputEdit, NULL, TRUE);
+                     UpdateWindow(hwndOutputEdit);
+
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Output cleared and styles reset.\n");
                      break;
                  }
 
