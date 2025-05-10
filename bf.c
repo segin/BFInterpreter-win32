@@ -1277,6 +1277,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     DebugPrint("WM_COMMAND: IDC_BUTTON_NEW_WINDOW received. Creating new blank dialog.\n");
 
+                    /*
                     // --- Define the dialog template in memory ---
                     // This is a minimal template for a blank dialog box.
                     // It defines the dialog itself but no controls within it.
@@ -1415,9 +1416,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
                         MessageBoxA(hwnd, "Failed to allocate memory for dialog template!", "Error", MB_ICONERROR);
                     }
+                    */
 
+                    // --- Temporarily replace with a simple MessageBoxA call ---
+                    MessageBoxA(hwnd, "New Window button clicked!", "New Window Test", MB_OK | MB_ICONINFORMATION);
+                    DebugPrint("IDC_BUTTON_NEW_WINDOW: MessageBoxA displayed.\n");
 
-                    DebugPrint("WM_COMMAND: Blank dialog process finished.\n");
                     break; // Break for IDC_BUTTON_NEW_WINDOW case
                 }
 
