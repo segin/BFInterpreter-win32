@@ -585,7 +585,7 @@ void ShowModalBlankDialog(HWND hwndParent) {
     MSG msg;
     DebugPrint("ShowModalBlankDialog: Entering modal message loop.\n");
     while (IsWindow(hDlg) && GetMessageA(&msg, NULL, 0, 0)) {
-        // Check if the message is for this dialog box.
+        // Check if the message is for a dialog box. If so, let the dialog handle it.
         // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
         if (!IsDialogMessage(hDlg, &msg)) {
             TranslateMessage(&msg);
@@ -634,7 +634,8 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             ReleaseDC(hwnd, hdc);
 
             // Add padding for the checkbox square, text spacing, and right margin within the control
-            int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5; // Approx checkbox width + padding
+            // Added a small buffer (+10) for safety against truncation
+            int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5 + 10; // Approx checkbox width + padding + buffer
 
             // Define vertical spacing and margins
             const int margin = 15; // Margin around control groups
@@ -644,11 +645,13 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             const int button_height = 25; // Standard button height
 
             // Calculate required dialog width: Max of checkbox control width and button width + margins
+            // Added a small buffer (+10) for safety
             int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width); // Use ternary operator instead of max
-            int dlgW = required_content_width + margin * 2;
+            int dlgW = required_content_width + margin * 2 + 10;
 
             // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
-            int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin;
+            // Added a small buffer (+10) for safety
+            int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin + 10;
 
 
             // Create checkboxes using WC_BUTTONA (Common Controls Button)
@@ -835,15 +838,18 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
 
     // Add padding for the checkbox square, text spacing, and right margin within the control
-    int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5; // Approx checkbox width + padding
+    // Added a small buffer (+10) for safety against truncation
+    int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5 + 10; // Approx checkbox width + padding + buffer
 
 
     // Calculate required dialog width: Max of checkbox control width and button width + margins
+    // Added a small buffer (+10) for safety
     int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width); // Use ternary operator instead of max
-    int dlgW = required_content_width + margin * 2;
+    int dlgW = required_content_width + margin * 2 + 10;
 
     // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
-    int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin;
+    // Added a small buffer (+10) for safety
+    int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin + 10;
 
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
