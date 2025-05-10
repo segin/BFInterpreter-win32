@@ -270,9 +270,9 @@ void SendBufferedOutput(InterpreterParams* params) {
         if (output_string) {
             PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)output_string);
         } else {
-             DebugPrint("SendBufferedOutput: Failed to duplicate output string.\n");
-             // Optionally, post an error message to the UI
-             PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)"Error: Failed to buffer output.\r\n");
+            DebugPrint("SendBufferedOutput: Failed to duplicate output string.\n");
+            // Optionally, post an error message to the UI
+            PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)"Error: Failed to buffer output.\r\n");
         }
         params->output_buffer_pos = 0; // Reset buffer position
     }
@@ -382,7 +382,7 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                 } else {
                     // Buffer is full, send it to the main thread
                     SendBufferedOutput(params);
-                     // Add the current character to the now-empty buffer
+                    // Add the current character to the now-empty buffer
                     params->output_buffer[params->output_buffer_pos++] = Tape_get(&tape);
                 }
                 // Yield to other threads/processes periodically to keep UI responsive
@@ -399,8 +399,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                         else if (ocode[current_pc] == ']') bracket_count--;
                     }
                     if (current_pc >= ocode_len) { // Reached end without finding matching ']'
-                         error_status = 1;
-                         DebugPrintInterpreter("InterpretThreadProc: Mismatched opening bracket found (no matching closing bracket).\n");
+                        error_status = 1;
+                        DebugPrintInterpreter("InterpretThreadProc: Mismatched opening bracket found (no matching closing bracket).\n");
                     } else {
                         pc = current_pc + 1; // Jump *past* the matching ']'
                     }
@@ -418,12 +418,12 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                         if (ocode[current_pc] == ']') bracket_count++;
                         else if (ocode[current_pc] == '[') bracket_count--;
                     }
-                     if (current_pc < 0) { // Reached beginning without finding matching '['
-                         error_status = 1;
-                         DebugPrintInterpreter("InterpretThreadProc: Mismatched closing bracket found (no matching opening bracket).\n");
-                     } else {
+                    if (current_pc < 0) { // Reached beginning without finding matching '['
+                        error_status = 1;
+                        DebugPrintInterpreter("InterpretThreadProc: Mismatched closing bracket found (no matching opening bracket).\n");
+                    } else {
                         pc = current_pc; // Jump *to* the matching '['
-                     }
+                    }
                 } else {
                     // If cell is zero, just move to the next instruction
                     pc++;
@@ -432,8 +432,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
         }
         // Check for external stop signal periodically
         if (!g_bInterpreterRunning) { // Accessing volatile bool
-             DebugPrintInterpreter("InterpretThreadProc: Stop signal received.\n");
-             break; // Exit the loop if stop is requested
+            DebugPrintInterpreter("InterpretThreadProc: Stop signal received.\n");
+            break; // Exit the loop if stop is requested
         }
     }
 
@@ -444,8 +444,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     // This check is redundant if the loop logic correctly sets error_status on mismatch
     // but keeping it doesn't hurt and might catch edge cases.
     if (error_status == 0 && pc < ocode_len && (ocode[pc] == '[' || ocode[pc] == ']')) {
-       error_status = 1; // Mismatched brackets detected at the end
-       DebugPrintInterpreter("InterpretThreadProc: Mismatched brackets detected at end of code.\n");
+    error_status = 1; // Mismatched brackets detected at the end
+    DebugPrintInterpreter("InterpretThreadProc: Mismatched brackets detected at end of code.\n");
     }
 
     // Post specific error message if it was a bracket mismatch
@@ -786,7 +786,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
     int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-     DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
+    DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
 
 
     // Create the modal dialog window
@@ -800,7 +800,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
         hInst,      // Instance handle
         NULL        // Additional application data
     );
-     DebugPrint("ShowModalSettingsDialog: CreateWindowA returned %p.\n", hDlg);
+    DebugPrint("ShowModalSettingsDialog: CreateWindowA returned %p.\n", hDlg);
 
 
     if (!hDlg) {
@@ -870,7 +870,7 @@ LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
             // Calculate dialog width and height
             // Width: Max of text width and button width + margins
             int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
-             // Reduce padding/buffer slightly to reduce overall width
+            // Reduce padding/buffer slightly to reduce overall width
             int dlgW = required_content_width + margin * 2 + 10; // Reduced buffer
 
             // Height: Top margin + text height + spacing + button height + bottom margin
@@ -1002,10 +1002,10 @@ void ShowModalAboutDialog(HWND hwndParent) {
     const int button_height = 25;
     const int button_spacing = 15;
 
-     // Calculate dialog width and height (matching WM_CREATE)
+    // Calculate dialog width and height (matching WM_CREATE)
     // Width: Max of text width and button width + margins
     int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
-     // Reduce padding/buffer slightly to reduce overall width
+    // Reduce padding/buffer slightly to reduce overall width
     int dlgW = required_content_width + margin * 2 + 10; // Reduced buffer
 
     // Height: Top margin + text height + spacing + button height + bottom margin
@@ -1014,7 +1014,7 @@ void ShowModalAboutDialog(HWND hwndParent) {
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
     int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-     DebugPrint("ShowModalAboutDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
+    DebugPrint("ShowModalAboutDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
 
 
     // Create the modal dialog window
@@ -1028,7 +1028,7 @@ void ShowModalAboutDialog(HWND hwndParent) {
         hInst,      // Instance handle
         NULL        // Additional application data
     );
-     DebugPrint("ShowModalAboutDialog: CreateWindowA returned %p.\n", hDlg);
+    DebugPrint("ShowModalAboutDialog: CreateWindowA returned %p.\n", hDlg);
 
 
     if (!hDlg) {
@@ -1237,7 +1237,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 "Courier New");         // Font name (ANSI)
 
             if (hMonoFont == NULL) {
-                 MessageBoxA(hwnd, STRING_FONT_ERROR_ANSI, "Font Error", MB_OK | MB_ICONWARNING);
+                MessageBoxA(hwnd, STRING_FONT_ERROR_ANSI, "Font Error", MB_OK | MB_ICONWARNING);
             }
 
             // --- Create Menu ---
@@ -1269,11 +1269,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // Labels (STATIC)
             // These will use the default system font
             CreateWindowA("STATIC", STRING_CODE_HELP_ANSI, WS_CHILD | WS_VISIBLE,
-                          10, 10, 100, 20, hwnd, (HMENU)IDC_STATIC_CODE, hInst, NULL);
+                        10, 10, 100, 20, hwnd, (HMENU)IDC_STATIC_CODE, hInst, NULL);
             CreateWindowA("STATIC", STRING_INPUT_HELP_ANSI, WS_CHILD | WS_VISIBLE,
-                          10, 170, 150, 20, hwnd, (HMENU)IDC_STATIC_INPUT, hInst, NULL);
+                        10, 170, 150, 20, hwnd, (HMENU)IDC_STATIC_INPUT, hInst, NULL);
             CreateWindowA("STATIC", STRING_OUTPUT_HELP_ANSI, WS_CHILD | WS_VISIBLE,
-                          10, 300, 150, 20, hwnd, (HMENU)IDC_STATIC_OUTPUT, hInst, NULL);
+                        10, 300, 150, 20, hwnd, (HMENU)IDC_STATIC_OUTPUT, hInst, NULL);
 
             // Edit Controls (EDIT)
             // Code Input - Apply monospaced font
@@ -1456,14 +1456,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         }
                         else
                         {
-                             char error_msg[256];
-                             sprintf_s(error_msg, sizeof(error_msg), "IDM_FILE_OPEN: Error creating file handle: %lu\n", GetLastError());
-                             DebugPrint(error_msg);
-                             MessageBoxA(hwnd, "Error opening file.", "File Error", MB_OK | MB_ICONERROR);
+                            char error_msg[256];
+                            sprintf_s(error_msg, sizeof(error_msg), "IDM_FILE_OPEN: Error creating file handle: %lu\n", GetLastError());
+                            DebugPrint(error_msg);
+                            MessageBoxA(hwnd, "Error opening file.", "File Error", MB_OK | MB_ICONERROR);
                         }
                     } else {
-                         DebugPrint("IDM_FILE_OPEN: File selection cancelled or failed.\n");
-                         // User cancelled or an error occurred (can check CommDlgExtendedError())
+                        DebugPrint("IDM_FILE_OPEN: File selection cancelled or failed.\n");
+                        // User cancelled or an error occurred (can check CommDlgExtendedError())
                     }
                     break;
                 }
@@ -1497,7 +1497,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                         int input_len = GetWindowTextLengthA(hwndInputEdit);
                         char* input = (char*)malloc((input_len + 1) * sizeof(char));
-                         if (!input) {
+                        if (!input) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for input.\n");
                             SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_INPUT_ANSI);
                             free(code); // Free previously allocated code
@@ -1523,12 +1523,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         // Allocate output buffer
                         params->output_buffer = (char*)malloc(OUTPUT_BUFFER_SIZE);
                         if (!params->output_buffer) {
-                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for output buffer.\n");
-                             SetWindowTextA(hwndOutputEdit, "Error: Memory allocation failed for output buffer.\r\n");
-                             free(code);
-                             free(input);
-                             free(params);
-                             break;
+                            DebugPrint("IDM_FILE_RUN: Memory allocation failed for output buffer.\n");
+                            SetWindowTextA(hwndOutputEdit, "Error: Memory allocation failed for output buffer.\r\n");
+                            free(code);
+                            free(input);
+                            free(params);
+                            break;
                         }
                         params->output_buffer_pos = 0;
                         // Removed initialization of current_output_text and current_output_len
@@ -1573,7 +1573,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // For an edit control, we can get the entire text
                     int textLen = GetWindowTextLengthA(hwndOutputEdit);
                     if (textLen > 0) {
-                         DebugPrint("IDM_FILE_COPYOUTPUT: Output text length > 0.\n");
+                        DebugPrint("IDM_FILE_COPYOUTPUT: Output text length > 0.\n");
                         // Need +1 for null terminator
                         HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, textLen + 1);
                         if (hGlobal) {
@@ -1602,7 +1602,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 }
                             } else {
                                 DebugPrint("IDM_FILE_COPYOUTPUT: Failed to lock memory.\n");
-                                 MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_LOCK_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
+                                MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_LOCK_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
                             }
                             // If hGlobal is not NULL here, it means SetClipboardData failed or
                             // was not called, so we should free the memory we allocated.
@@ -1610,10 +1610,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 DebugPrint("IDM_FILE_COPYOUTPUT: Freeing global memory.\n");
                                 GlobalFree(hGlobal);
                             }
-                         } else {
-                             DebugPrint("IDM_FILE_COPYOUTPUT: Failed to allocate global memory.\n");
-                             MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_ALLOC_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
-                         }
+                        } else {
+                            DebugPrint("IDM_FILE_COPYOUTPUT: Failed to allocate global memory.\n");
+                            MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_ALLOC_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
+                        }
                     } else {
                         DebugPrint("IDM_FILE_COPYOUTPUT: Output text length is 0.\n");
                         // Optional: Notify user if there's nothing to copy
@@ -1622,32 +1622,32 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     break; // Break for IDM_FILE_COPYOUTPUT case
                 } // End brace for IDM_FILE_COPYOUTPUT scope
 
-                 case IDM_FILE_CLEAROUTPUT:
-                 {
-                     DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output edit (handle %p).\n", (void*)hwndOutputEdit);
+                case IDM_FILE_CLEAROUTPUT:
+                {
+                    DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
+                    DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output edit (handle %p).\n", (void*)hwndOutputEdit);
 
-                     // Temporarily disable redrawing
-                     SendMessageA(hwndOutputEdit, WM_SETREDRAW, FALSE, 0);
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Disabled redrawing.\n");
+                    // Temporarily disable redrawing
+                    SendMessageA(hwndOutputEdit, WM_SETREDRAW, FALSE, 0);
+                    DebugPrint("IDM_FILE_CLEAROUTPUT: Disabled redrawing.\n");
 
-                     // Clear the text
-                     SetWindowTextA(hwndOutputEdit, "");
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared.\n");
+                    // Clear the text
+                    SetWindowTextA(hwndOutputEdit, "");
+                    DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared.\n");
 
-                     // Re-enable redrawing and force a repaint
-                     SendMessageA(hwndOutputEdit, WM_SETREDRAW, TRUE, 0);
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Enabled redrawing.\n");
+                    // Re-enable redrawing and force a repaint
+                    SendMessageA(hwndOutputEdit, WM_SETREDRAW, TRUE, 0);
+                    DebugPrint("IDM_FILE_CLEAROUTPUT: Enabled redrawing.\n");
 
-                     RECT rcClient;
-                     GetClientRect(hwndOutputEdit, &rcClient);
-                     InvalidateRect(hwndOutputEdit, &rcClient, TRUE); // Invalidate and erase background
-                     UpdateWindow(hwndOutputEdit); // Force immediate paint
+                    RECT rcClient;
+                    GetClientRect(hwndOutputEdit, &rcClient);
+                    InvalidateRect(hwndOutputEdit, &rcClient, TRUE); // Invalidate and erase background
+                    UpdateWindow(hwndOutputEdit); // Force immediate paint
 
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
+                    DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
 
-                     break;
-                 }
+                    break;
+                }
 
                 case IDM_FILE_EXIT:
                     DebugPrint("WM_COMMAND: IDM_FILE_EXIT received.\n");
@@ -1728,22 +1728,22 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_MBUTTONDOWN:
         case WM_MOUSEMOVE:
         {
-             // Let the default window procedure handle mouse messages for selection in ES_READONLY control
-             return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+            // Let the default window procedure handle mouse messages for selection in ES_READONLY control
+            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
         }
 
 
         case WM_CTLCOLORSTATIC:
         {
-             HDC hdcStatic = (HDC)wParam;
-             // Make label background transparent to match window background
-             SetBkMode(hdcStatic, TRANSPARENT);
-             // Return a NULL_BRUSH handle to prevent background painting
-             return (LRESULT)GetStockObject(NULL_BRUSH);
+            HDC hdcStatic = (HDC)wParam;
+            // Make label background transparent to match window background
+            SetBkMode(hdcStatic, TRANSPARENT);
+            // Return a NULL_BRUSH handle to prevent background painting
+            return (LRESULT)GetStockObject(NULL_BRUSH);
         }
         // Note: No 'break' needed after return
 
-         case WM_APP_INTERPRETER_OUTPUT_STRING: {
+        case WM_APP_INTERPRETER_OUTPUT_STRING: {
             // Append a string to output edit control (used for error messages and buffered output) (ANSI)
             DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING received.\n");
             HWND hEdit = hwndOutputEdit; // Use the handle for the edit control
@@ -1771,29 +1771,29 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Freed string memory.\n");
             }
             return 0;
-         }
+        }
 
 
-         case WM_APP_INTERPRETER_DONE: {
-             DebugPrint("WM_APP_INTERPRETER_DONE received.\n");
-             // Interpreter thread finished
-             g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
-             // wParam indicates status: 0 for success, 1 for error
+        case WM_APP_INTERPRETER_DONE: {
+            DebugPrint("WM_APP_INTERPRETER_DONE received.\n");
+            // Interpreter thread finished
+            g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
+            // wParam indicates status: 0 for success, 1 for error
 
-             if (wParam == 0) {
-                 DebugPrint("WM_APP_INTERPRETER_DONE: Status = Success.\n");
-                 // Success (output is already updated via WM_APP_INTERPRETER_OUTPUT_STRING)
-                 // Optionally, display a "Done" message
-                 // MessageBoxA(hwnd, "Interpretation finished successfully.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
-             } else {
-                 DebugPrint("WM_APP_INTERPRETER_DONE: Status = Error.\n");
-                 // Error message is already posted via WM_APP_INTERPRETER_OUTPUT_STRING
-                 // Optionally, display an "Error" message box
-                 // MessageBoxA(hwnd, "Interpretation finished with errors.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONERROR);
-             }
+            if (wParam == 0) {
+                DebugPrint("WM_APP_INTERPRETER_DONE: Status = Success.\n");
+                // Success (output is already updated via WM_APP_INTERPRETER_OUTPUT_STRING)
+                // Optionally, display a "Done" message
+                // MessageBoxA(hwnd, "Interpretation finished successfully.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
+            } else {
+                DebugPrint("WM_APP_INTERPRETER_DONE: Status = Error.\n");
+                // Error message is already posted via WM_APP_INTERPRETER_OUTPUT_STRING
+                // Optionally, display an "Error" message box
+                // MessageBoxA(hwnd, "Interpretation finished with errors.", WINDOW_TITLE_ANSI, MB_OK | MB_ICONERROR);
+            }
 
-             return 0;
-         }
+            return 0;
+        }
 
 
         case WM_CLOSE:
@@ -1804,7 +1804,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case WM_DESTROY:
             DebugPrint("WM_DESTROY received.\n");
-             // Signal the interpreter thread to stop if it's running
+            // Signal the interpreter thread to stop if it's running
             g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
             // It's generally not recommended to block the UI thread waiting for a worker thread
             // in WM_DESTROY in a real application, as it can make the application
@@ -1936,7 +1936,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         // Check if the message is for a dialog box. If so, let the dialog handle it.
         // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
         if (!IsDialogMessage(GetActiveWindow(), &msg)) {
-             // Translate accelerator keys before dispatching the message
+            // Translate accelerator keys before dispatching the message
             if (!TranslateAcceleratorA(msg.hwnd, hAccelTable, &msg)) {
                 TranslateMessage(&msg);
                 DispatchMessageA(&msg); // Use DispatchMessageA
