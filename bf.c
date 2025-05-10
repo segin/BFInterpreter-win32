@@ -25,17 +25,20 @@
 #define IDM_FILE_RUN        201
 #define IDM_FILE_COPYOUTPUT 202
 #define IDM_FILE_EXIT       203
-#define IDM_FILE_OPEN       204 // New menu ID for Open // Corrected typo here
+#define IDM_FILE_OPEN       204 // New menu ID for Open
 #define IDM_FILE_SETTINGS   205 // New menu ID for Settings
 #define IDM_FILE_CLEAROUTPUT 206 // New menu ID for Clear Output
 #define IDM_HELP_ABOUT      207 // New menu ID for About
 
-// Accelerator IDs for Ctrl+A, Ctrl+N, Ctrl+F1
-#define IDM_SELECTALL_CODE   401
-#define IDM_SELECTALL_INPUT  402
-#define IDM_SELECTALL_OUTPUT 403
+// Accelerator IDs
+#define IDM_EDIT_SELECTALL   400 // Single Accelerator ID for Ctrl+A
 #define IDA_FILE_NEW         404 // Accelerator ID for Ctrl+N
 #define IDA_HELP_ABOUT       405 // Accelerator ID for Ctrl+F1
+
+// Removed separate select all IDs as per Gemini Pro suggestion
+// #define IDM_SELECTALL_CODE   401
+// #define IDM_SELECTALL_INPUT  402
+// #define IDM_SELECTALL_OUTPUT 403
 
 
 // Define Dialog Control IDs for Settings Dialog
@@ -93,7 +96,7 @@
 #define STRING_CONFIRM_EXIT_ANSI "Confirm Exit"
 #define STRING_REALLY_QUIT_ANSI "Really quit?"
 #define STRING_OPEN_FILE_TITLE_ANSI "Open Brainfuck Source File"
-#define STRING_SETTINGS_NOT_IMPLEMENTED_ANSI "Settings option is not yet implemented." // This is now implemented, can be removed or updated
+// Removed STRING_SETTINGS_NOT_IMPLEMENTED_ANSI as it's no longer used
 #define STRING_SETTINGS_TITLE_ANSI "Interpreter Settings"
 #define STRING_DEBUG_INTERPRETER_ANSI "Enable interpreter instruction debug messages"
 #define STRING_DEBUG_OUTPUT_ANSI "Enable interpreter output message debug messages"
@@ -255,9 +258,7 @@ typedef struct {
     int input_pos;
     char* output_buffer; // Buffer for output characters
     int output_buffer_pos; // Current position in the output buffer
-    // Add a copy of the output text from the UI thread to rebuild upon receiving a chunk
-    char* current_output_text;
-    int current_output_len;
+    // Removed current_output_text and current_output_len as they were unused
 } InterpreterParams;
 
 // Helper function to send buffered output to the main thread
@@ -325,7 +326,7 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
         free(params->code);
         free(params->input);
         free(params->output_buffer); // Free output buffer
-        if (params->current_output_text) free(params->current_output_text); // Free current output text
+        // Removed free(params->current_output_text); // Free current output text
         free(params);
         // g_hInterpreterThread = NULL; // This should be handled by the main thread or a more robust mechanism
         g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
@@ -463,7 +464,7 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     free(params->code);
     free(params->input);
     free(params->output_buffer); // Free output buffer
-    if (params->current_output_text) free(params->current_output_text); // Free current output text
+    // Removed free(params->current_output_text); // Free current output text
     free(params);
     // g_hInterpreterThread = NULL; // This should be handled by the main thread or a more robust mechanism
     g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
@@ -517,10 +518,8 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             }
 
             // Calculate control dimensions
-            // Add padding for the checkbox square, text spacing, and right margin within the control
-            int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8; // Increased padding slightly
-            // Added a small buffer (+15) for safety against truncation (increased buffer)
-            checkbox_control_width += 15;
+            // Combine padding calculation for brevity as suggested by Gemini Pro
+            int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8 + 15;
 
 
             const int button_width = 75; // Standard button width
@@ -762,8 +761,8 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     ReleaseDC(NULL, hdc); // Release screen DC
 
     // Add padding for the checkbox square, text spacing, and right margin within the control
-    // Added a small buffer (+15) for safety against truncation (increased buffer)
-    int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8 + 15; // Approx checkbox width + padding + buffer (increased padding/buffer)
+    // Combine padding calculation for brevity as suggested by Gemini Pro
+    int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8 + 15;
 
 
     // Define vertical spacing and margins
@@ -806,7 +805,8 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
     if (!hDlg) {
         DebugPrint("ShowModalSettingsDialog: Failed to create settings dialog window. GetLastError: %lu\n", GetLastError());
-        MessageBoxA(hwndParent, "Failed to register settings dialog class!", "Error", MB_ICONEXCLAMATION | MB_OK);
+        // Corrected error message as suggested by Gemini Pro
+        MessageBoxA(hwndParent, "Failed to create settings dialog window!", "Error", MB_ICONEXCLAMATION | MB_OK);
         EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
         return;
     }
@@ -1295,10 +1295,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
             }
 
-            // Standard Output (Edit control without ES_READONLY, input blocked manually) - Apply monospaced font
+            // Standard Output (Edit control with ES_READONLY) - Apply monospaced font
+            // Added ES_READONLY style as suggested by Gemini Pro
             hwndOutputEdit = CreateWindowExA(
                 WS_EX_CLIENTEDGE, "EDIT", "",
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL, // Removed ES_READONLY
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL); // Reverted to IDC_EDIT_OUTPUT
             if (hMonoFont) {
                 SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to edit control
@@ -1530,9 +1531,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                              break;
                         }
                         params->output_buffer_pos = 0;
-                        // Initialize current_output_text
-                        params->current_output_text = _strdup("");
-                        params->current_output_len = 0;
+                        // Removed initialization of current_output_text and current_output_len
 
                         DebugPrint("IDM_FILE_RUN: InterpreterParams prepared.\n");
 
@@ -1551,7 +1550,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             free(code);
                             free(input);
                             free(params->output_buffer); // Free output buffer
-                            if (params->current_output_text) free(params->current_output_text);
+                            // Removed free(params->current_output_text);
                             free(params);
                         } else {
                             DebugPrint("IDM_FILE_RUN: CreateThread succeeded.\n");
@@ -1655,23 +1654,32 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     DestroyWindow(hwnd);
                     break;
 
-                case IDM_SELECTALL_CODE:
-                    DebugPrint("WM_COMMAND: IDM_SELECTALL_CODE received. Selecting all text in code edit.\n");
-                    // Select all text in the code edit control
-                    SendMessageA(hwndCodeEdit, EM_SETSEL, 0, -1);
-                    break;
+                case IDM_EDIT_SELECTALL: // Handle the single Select All ID
+                {
+                    DebugPrint("WM_COMMAND: IDM_EDIT_SELECTALL received.\n");
+                    HWND hFocusedWnd = GetFocus(); // Get the window with focus
 
-                case IDM_SELECTALL_INPUT:
-                     DebugPrint("WM_COMMAND: IDM_SELECTALL_INPUT received. Selecting all text in input edit.\n");
-                    // Select all text in the input edit control
-                    SendMessageA(hwndInputEdit, EM_SETSEL, 0, -1);
+                    // Check which edit control has focus and select all text in it
+                    if (hFocusedWnd == hwndCodeEdit) {
+                        SendMessageA(hwndCodeEdit, EM_SETSEL, 0, -1);
+                        DebugPrint("WM_COMMAND: IDM_EDIT_SELECTALL (Code) processed.\n");
+                    } else if (hFocusedWnd == hwndInputEdit) {
+                        SendMessageA(hwndInputEdit, EM_SETSEL, 0, -1);
+                        DebugPrint("WM_COMMAND: IDM_EDIT_SELECTALL (Input) processed.\n");
+                    } else if (hFocusedWnd == hwndOutputEdit) {
+                        SendMessageA(hwndOutputEdit, EM_SETSEL, 0, -1);
+                        DebugPrint("WM_COMMAND: IDM_EDIT_SELECTALL (Output) processed.\n");
+                    } else {
+                        DebugPrint("WM_COMMAND: IDM_EDIT_SELECTALL - No target edit control has focus.\n");
+                    }
                     break;
+                }
 
-                case IDM_SELECTALL_OUTPUT:
-                     DebugPrint("WM_COMMAND: IDM_SELECTALL_OUTPUT received. Selecting all text in output edit.\n");
-                    // Select all text in the output edit control
-                    SendMessageA(hwndOutputEdit, EM_SETSEL, 0, -1);
-                    break;
+                // Removed individual Select All cases
+                // case IDM_SELECTALL_CODE:
+                // case IDM_SELECTALL_INPUT:
+                // case IDM_SELECTALL_OUTPUT:
+
 
                 // Removed case IDC_BUTTON_NEW_WINDOW:
 
@@ -1694,7 +1702,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         // --- Input Blocking for Output Edit Control ---
-        // Intercept messages that could modify the text in the output edit control
+        // Removed manual input blocking as ES_READONLY is used
+        /*
         case WM_KEYDOWN:
         case WM_CHAR:
         case WM_UNICHAR: // For Unicode characters (though we are using ANSI)
@@ -1710,43 +1719,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // Otherwise, let the default window procedure handle it
             return DefWindowProcA(hwnd, uMsg, wParam, lParam);
         }
+        */
 
         // Intercept mouse clicks that could lead to text modification
+        // Simplified mouse message handling as ES_READONLY handles selection
         case WM_LBUTTONDOWN:
         case WM_RBUTTONDOWN:
         case WM_MBUTTONDOWN:
-        {
-             // Check if the message is for the output edit control
-             if ((HWND)lParam == hwndOutputEdit) {
-                // If it is, allow it. This is needed for selection to work.
-                DebugPrint("WindowProc: Allowing mouse down message %u for output edit control (for selection).\n");
-                return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-            }
-             // Otherwise, let the default window procedure handle it
-            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-        }
-
-        // Allow mouse move for selection, but block if it's not part of a drag selection
         case WM_MOUSEMOVE:
         {
-             // Check if the message is for the output edit control
-             if ((HWND)lParam == hwndOutputEdit) {
-                 // Check if a mouse button is down (indicating a drag selection)
-                 if (wParam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) {
-                     // If a button is down, it's likely a selection drag, so allow the message
-                     DebugPrint("WindowProc: Allowing mouse move message for output edit control (during selection).\n");
-                     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-                 } else {
-                     // If no button is down, it's just a mouse hover, which we can ignore
-                     // to prevent potential issues, although it's usually harmless.
-                     // Returning 0 here might prevent the caret from changing shape on hover,
-                     // which is acceptable for a read-only like behavior.
-                     DebugPrint("WindowProc: Blocking mouse move message for output edit control (not during selection).\n");
-                     return 0; // Block the message
-                 }
-            }
-             // Otherwise, let the default window procedure handle it
-            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+             // Let the default window procedure handle mouse messages for selection in ES_READONLY control
+             return DefWindowProcA(hwnd, uMsg, wParam, lParam);
         }
 
 
@@ -1900,9 +1883,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         {FVIRTKEY | FCONTROL, 'C', IDM_FILE_COPYOUTPUT},
         {FVIRTKEY | FCONTROL, 'X', IDM_FILE_EXIT}, // Accelerator for Exit
         {FVIRTKEY | FCONTROL, 'O', IDM_FILE_OPEN},  // Accelerator for Open
-        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_CODE}, // Ctrl+A for Code Edit
-        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_INPUT}, // Ctrl+A for Input Edit
-        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_OUTPUT}, // Ctrl+A for Output Edit (now that it's an edit control)
+        {FVIRTKEY | FCONTROL, 'A', IDM_EDIT_SELECTALL}, // Ctrl+A for Select All
         {FVIRTKEY | FCONTROL, VK_F1, IDM_HELP_ABOUT} // Ctrl+F1 for About
     };
 
