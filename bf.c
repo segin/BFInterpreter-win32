@@ -990,8 +990,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                     (DWORD)id \
                                 }; \
                                 memcpy(pCurrent, &item_template, sizeof(MY_DLGITEMTEMPLATEEX_WIDE)); \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied item template struct for ID %u. Size: %zu bytes. Current offset after struct: %zu\n", id, sizeof(MY_DLGITEMTEMPLATEEX_WIDE), pCurrent - pGlobalTemplate + sizeof(MY_DLGITEMTEMPLATEEX_WIDE)); \
                                 pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE); \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied item template for ID %u. Current offset: %zu\n", id, pCurrent - pGlobalTemplate); \
                                 \
                                 /* Copy Class Name (string) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
@@ -1000,7 +1000,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 size_t item_class_len = wcslen(class_wide) + 1; \
                                 memcpy(pItemClass, class_wide, item_class_len * sizeof(WCHAR)); \
                                 pCurrent += item_class_len * sizeof(WCHAR); \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset: %zu\n", id, item_class_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset after class: %zu\n", id, item_class_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
                                 \
                                 /* Copy Title (string) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
@@ -1009,7 +1009,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 size_t item_text_len = wcslen(text_wide) + 1; \
                                 memcpy(pItemText, text_wide, item_text_len * sizeof(WCHAR)); \
                                 pCurrent += item_text_len * sizeof(WCHAR); \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset: %zu\n", id, item_text_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset after text: %zu\n", id, item_text_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
                                 \
                                 /* Creation Data (always 0 size for standard controls) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
@@ -1017,7 +1017,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 LPWORD pCreationDataSize = (LPWORD)pCurrent; \
                                 *pCreationDataSize = 0; /* Size of creation data */ \
                                 pCurrent += sizeof(WORD); \
-                                DebugPrint("IDM_FILE_SETTINGS: Finished adding control ID %u. Current offset: %zu\n", id, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Finished adding control ID %u. Current offset after creation data size: %zu\n", id, pCurrent - pGlobalTemplate); \
                             }
 
 
