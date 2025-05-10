@@ -1165,6 +1165,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                      DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output edit (handle %p).\n", (void*)hwndOutputEdit);
 
+                     // Temporarily disable redrawing
+                     SendMessageA(hwndOutputEdit, WM_SETREDRAW, FALSE, 0);
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Disabled redrawing.\n");
+
                      // Temporarily remove ES_READONLY to allow text modification
                      LONG_PTR style = GetWindowLongPtrA(hwndOutputEdit, GWL_STYLE);
                      SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style & ~ES_READONLY);
@@ -1178,7 +1182,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                      SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style);
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Restored ES_READONLY style.\n");
 
-                     // Attempt to force a clean repaint
+                     // Re-enable redrawing and force a repaint
+                     SendMessageA(hwndOutputEdit, WM_SETREDRAW, TRUE, 0);
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Enabled redrawing.\n");
+
                      RECT rcClient;
                      GetClientRect(hwndOutputEdit, &rcClient);
                      InvalidateRect(hwndOutputEdit, &rcClient, TRUE); // Invalidate and erase background
