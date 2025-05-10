@@ -9,7 +9,6 @@
 #include <dlgs.h>     // Include this for dialog styles like DS_RESIZE (though using WS_SIZEBOX/WS_THICKFRAME below)
 #include <commctrl.h> // Include for Common Control
 #include <winreg.h>   // Include for Registry functions
-// Removed #include <algorithm> - this was a C++ header, replaced std::max with ternary operator
 
 // Define Control IDs
 #define IDC_STATIC_CODE     101
@@ -17,39 +16,32 @@
 #define IDC_STATIC_INPUT    103
 #define IDC_EDIT_INPUT      104
 #define IDC_STATIC_OUTPUT   105
-#define IDC_EDIT_OUTPUT     106 // Reverted back to EDIT control ID
-// Removed IDC_BUTTON_NEW_WINDOW 108
+#define IDC_EDIT_OUTPUT     106
 
 // Define Menu IDs
-#define IDM_FILE_NEW        200 // New menu ID for New
+#define IDM_FILE_NEW        200
 #define IDM_FILE_RUN        201
-#define IDM_FILE_COPYOUTPUT 202 // Keep existing ID for menu item
+#define IDM_FILE_COPYOUTPUT 202
 #define IDM_FILE_EXIT       203
-#define IDM_FILE_OPEN       204 // New menu ID for Open
-#define IDM_FILE_SETTINGS   205 // New menu ID for Settings
-#define IDM_FILE_CLEAROUTPUT 206 // New menu ID for Clear Output
-#define IDM_HELP_ABOUT      207 // New menu ID for About
+#define IDM_FILE_OPEN       204
+#define IDM_FILE_SETTINGS   205
+#define IDM_FILE_CLEAROUTPUT 206
+#define IDM_HELP_ABOUT      207
 
-// New Edit Menu IDs
+// Define Edit Menu IDs
 #define IDM_EDIT_CUT        210
 #define IDM_EDIT_COPY       211
 #define IDM_EDIT_PASTE      212
-#define IDM_EDIT_SELECTALL  213 // Re-used the concept, but defined here for clarity
+#define IDM_EDIT_SELECTALL  213
 
 // Accelerator IDs
-#define IDA_FILE_NEW         404 // Accelerator ID for Ctrl+N
-#define IDA_HELP_ABOUT       405 // Accelerator ID for Ctrl+F1
-#define IDA_EDIT_CUT         410 // Accelerator ID for Ctrl+X
-#define IDA_EDIT_COPY        411 // Accelerator ID for Ctrl+C
-#define IDA_EDIT_PASTE       412 // Accelerator ID for Ctrl+V
-#define IDA_EDIT_SELECTALL   413 // Accelerator ID for Ctrl+A
-#define IDA_FILE_COPYOUTPUT  414 // Accelerator ID for Ctrl+Shift+C (New)
-
-
-// Removed separate select all IDs as per Gemini Pro suggestion
-// #define IDM_SELECTALL_CODE   401
-// #define IDM_SELECTALL_INPUT  402
-// #define IDM_SELECTALL_OUTPUT 403
+#define IDA_FILE_NEW         404
+#define IDA_HELP_ABOUT       405
+#define IDA_EDIT_CUT         410
+#define IDA_EDIT_COPY        411
+#define IDA_EDIT_PASTE       412
+#define IDA_EDIT_SELECTALL   413
+#define IDA_FILE_COPYOUTPUT  414
 
 
 // Define Dialog Control IDs for Settings Dialog
@@ -58,37 +50,31 @@
 #define IDC_CHECK_DEBUG_BASIC       303
 // IDOK and IDCANCEL are predefined as 1 and 2
 
-// Removed IDC_DUMMY_CHECKBOX 501
-// Removed IDC_BLANK_DIALOG_DISMISS 502
-
 // Define Dialog Control IDs for About Dialog
-#define IDC_STATIC_ABOUT_TEXT 601 // Defined the missing control ID
+#define IDC_STATIC_ABOUT_TEXT 601
 
 
 // --- Custom Messages for Thread Communication (ANSI versions) ---
-// Message to append a character to output. wParam = character, lParam = 0. (No longer used with buffering)
-// #define WM_APP_INTERPRETER_OUTPUT_CHAR (WM_APP + 1)
 // Message to append a string to output. wParam = 0, lParam = pointer to string (must be valid when message is processed).
 #define WM_APP_INTERPRETER_OUTPUT_STRING (WM_APP + 2)
 // Message when interpreter finishes (success or error). wParam = status (0=success, 1=error).
 #define WM_APP_INTERPRETER_DONE   (WM_APP + 3)
 
 // --- Constants (ANSI versions) ---
-// Modified title bar text as requested
 #define WINDOW_TITLE_ANSI        "BF Interpreter"
 #define STRING_CODE_HELP_ANSI    "Code:"
 #define STRING_INPUT_HELP_ANSI   "Standard input:"
 #define STRING_OUTPUT_HELP_ANSI  "Standard output:"
-#define STRING_ACTION_NEW_ANSI   "&New\tCtrl+N" // Added New menu text
+#define STRING_ACTION_NEW_ANSI   "&New\tCtrl+N"
 #define STRING_ACTION_RUN_ANSI   "&Run\tCtrl+R"
-#define STRING_ACTION_COPY_ANSI  "&Copy Output\tCtrl+Shift+C" // Updated menu text for Copy Output
-#define STRING_ACTION_EXIT_ANSI  "E&xit\tCtrl+X" // Added Ctrl+X to menu text
-#define STRING_ACTION_OPEN_ANSI  "&Open...\tCtrl+O" // Added Open menu text
-#define STRING_ACTION_SETTINGS_ANSI "&Settings..." // Added Settings menu text
-#define STRING_ACTION_CLEAROUTPUT_ANSI "C&lear Output" // Added Clear Output menu item
+#define STRING_ACTION_COPY_ANSI  "&Copy Output\tCtrl+Shift+C"
+#define STRING_ACTION_EXIT_ANSI  "E&xit\tCtrl+X"
+#define STRING_ACTION_OPEN_ANSI  "&Open...\tCtrl+O"
+#define STRING_ACTION_SETTINGS_ANSI "&Settings..."
+#define STRING_ACTION_CLEAROUTPUT_ANSI "C&lear Output"
 #define STRING_FILE_MENU_ANSI    "&File"
-#define STRING_HELP_MENU_ANSI    "&Help" // Added Help menu text
-#define STRING_ACTION_ABOUT_ANSI "&About\tCtrl+F1" // Added About menu text
+#define STRING_HELP_MENU_ANSI    "&Help"
+#define STRING_ACTION_ABOUT_ANSI "&About\tCtrl+F1"
 #define STRING_CODE_TEXT_ANSI    ",[>,]<[.<]" // Default code
 #define STRING_INPUT_TEXT_ANSI   "This is the default stdin-text" // Default input
 #define STRING_COPIED_ANSI       "Output copied to clipboard!"
@@ -108,28 +94,21 @@
 #define STRING_CONFIRM_EXIT_ANSI "Confirm Exit"
 #define STRING_REALLY_QUIT_ANSI "Really quit?"
 #define STRING_OPEN_FILE_TITLE_ANSI "Open Brainfuck Source File"
-// Removed STRING_SETTINGS_NOT_IMPLEMENTED_ANSI as it's no longer used
 #define STRING_SETTINGS_TITLE_ANSI "Interpreter Settings"
 #define STRING_DEBUG_INTERPRETER_ANSI "Enable interpreter instruction debug messages"
 #define STRING_DEBUG_OUTPUT_ANSI "Enable interpreter output message debug messages"
 #define STRING_DEBUG_BASIC_ANSI "Enable basic debug messages"
 #define STRING_OK_ANSI "OK"
-#define STRING_CANCEL_ANSI "Cancel" // Keep this constant for clarity, even if the button isn't created
-// Removed STRING_NEW_WINDOW_BUTTON_ANSI "New Window"
-// Removed STRING_BLANK_DIALOG_TITLE_ANSI "Blank Dialog"
-// Removed BLANK_DIALOG_CLASS_NAME_ANSI "BlankDialogClass"
-// Removed STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox"
-// Removed STRING_BLANK_DIALOG_DISMISS_ANSI "Dismiss"
-#define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass" // New window class name for the settings dialog
-#define STRING_ABOUT_TITLE_ANSI "About BF Interpreter-win32" // Updated title for the About box
-// Updated text for the About box with new name, blank line, and copyright
+#define STRING_CANCEL_ANSI "Cancel"
+#define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass"
+#define STRING_ABOUT_TITLE_ANSI "About BF Interpreter-win32"
 #define STRING_ABOUT_TEXT_ANSI "BF Interpreter\r\n\r\nVersion 1.0\r\nCopyright 2015-2025 Kirn Gill II <segin2005@gmail.com>\r\n\r\nSimple interpreter with basic features."
-#define ABOUT_DIALOG_CLASS_NAME_ANSI "AboutDialogClass" // New window class name for the about dialog
+#define ABOUT_DIALOG_CLASS_NAME_ANSI "AboutDialogClass"
 
 // New Edit Menu Strings
 #define STRING_EDIT_MENU_ANSI    "&Edit"
 #define STRING_ACTION_CUT_ANSI   "Cu&t\tCtrl+X"
-#define STRING_ACTION_COPY_ANSI_EDIT "&Cop&y\tCtrl+C" // Specific Copy for Edit menu
+#define STRING_ACTION_COPY_ANSI_EDIT "&Cop&y\tCtrl+C"
 #define STRING_ACTION_PASTE_ANSI "Pas&te\tCtrl+V"
 #define STRING_ACTION_SELECTALL_ANSI "Select &All\tCtrl+A"
 
@@ -148,10 +127,10 @@
 // Global variables
 HINSTANCE hInst;
 HFONT hMonoFont = NULL;
-HFONT hLabelFont = NULL; // New: Handle for the label font
+HFONT hLabelFont = NULL; // Handle for the label font
 HWND hwndCodeEdit = NULL;
 HWND hwndInputEdit = NULL;
-HWND hwndOutputEdit = NULL; // Reverted back to original name for edit control
+HWND hwndOutputEdit = NULL;
 HANDLE g_hInterpreterThread = NULL; // Handle for the worker thread
 volatile BOOL g_bInterpreterRunning = FALSE; // Flag to indicate if interpreter is running (volatile for thread safety)
 HACCEL hAccelTable; // Handle to the accelerator table
@@ -163,8 +142,6 @@ volatile BOOL g_bDebugBasic = TRUE;       // Default to TRUE
 
 // Forward declaration of the main window procedure
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-// Removed Forward declaration of the blank modal dialog procedure
-// Removed Forward declaration of the function to show the blank modal dialog
 // Forward declaration of the settings modal dialog procedure
 LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the function to show the settings modal dialog
@@ -181,7 +158,6 @@ void LoadDebugSettingsFromRegistry();
 
 
 // Helper function to append text to an EDIT control (Defined before use)
-// This function is less relevant now with the text replacement approach for output
 void AppendText(HWND hwndEdit, const char* newText) {
     // Get the current length of text in the edit control
     int len = GetWindowTextLengthA(hwndEdit);
@@ -278,7 +254,6 @@ typedef struct {
     int input_pos;
     char* output_buffer; // Buffer for output characters
     int output_buffer_pos; // Current position in the output buffer
-    // Removed current_output_text and current_output_len as they were unused
 } InterpreterParams;
 
 // Helper function to send buffered output to the main thread
@@ -346,9 +321,7 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
         free(params->code);
         free(params->input);
         free(params->output_buffer); // Free output buffer
-        // Removed free(params->current_output_text); // Free current output text
         free(params);
-        // g_hInterpreterThread = NULL; // This should be handled by the main thread or a more robust mechanism
         g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
         return 1; // Indicate failure
     }
@@ -484,17 +457,12 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     free(params->code);
     free(params->input);
     free(params->output_buffer); // Free output buffer
-    // Removed free(params->current_output_text); // Free current output text
     free(params);
-    // g_hInterpreterThread = NULL; // This should be handled by the main thread or a more robust mechanism
     g_bInterpreterRunning = FALSE; // Use simple assignment for volatile bool
 
     DebugPrintInterpreter("Interpreter thread exiting.\n");
     return error_status; // Return status
 }
-
-// Removed BlankModalDialogProc function
-// Removed ShowModalBlankDialog function
 
 
 // --- Settings Modal Dialog Procedure ---
@@ -539,7 +507,6 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             }
 
             // Calculate control dimensions
-            // Combine padding calculation for brevity as suggested by Gemini Pro
             int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8 + 15;
 
 
@@ -553,7 +520,6 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
 
             // Calculate required dialog width: Max of checkbox control width and button width + margins
-            // Replaced std::max with ternary operator for C99 compatibility
             int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width);
             // Added a small buffer (+15) for safety (increased buffer)
             int dlgW = required_content_width + margin * 2 + 15;
@@ -646,8 +612,6 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             }
             DebugPrint("SettingsModalDialogProc: OK button created.\n");
 
-            // Removed the creation of the Cancel button
-
 
             // Initialize checkboxes based on current global settings
             CheckDlgButton(hwnd, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
@@ -700,7 +664,6 @@ CheckDlgButton(hwnd, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_
 
                     DestroyWindow(hwnd); // Close the dialog
                     break;
-                // Removed the case for IDCANCEL
                 case IDC_CHECK_DEBUG_BASIC:
                     DebugPrint("SettingsModalDialogProc: Basic debug checkbox clicked.\n");
                     // Get the current state of the basic debug checkbox
@@ -799,7 +762,6 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     ReleaseDC(NULL, hdc); // Release screen DC
 
     // Add padding for the checkbox square, text spacing, and right margin within the control
-    // Combine padding calculation for brevity as suggested by Gemini Pro
     int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8 + 15;
 
 
@@ -811,7 +773,6 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     const int button_height = 25; // Standard button height
 
     // Calculate required dialog width: Max of checkbox control width and button width + margins
-    // Replaced std::max with ternary operator for C99 compatibility
     int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width);
     // Added a small buffer (+15) for safety (increased buffer)
     int dlgW = required_content_width + margin * 2 + 15;
@@ -843,7 +804,6 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
     if (!hDlg) {
         DebugPrint("ShowModalSettingsDialog: Failed to create settings dialog window. GetLastError: %lu\n", GetLastError());
-        // Corrected error message as suggested by Gemini Pro
         MessageBoxA(hwndParent, "Failed to create settings dialog window!", "Error", MB_OK | MB_ICONEXCLAMATION | MB_OK);
         EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
         return;
@@ -891,7 +851,6 @@ LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
             DebugPrint("AboutModalDialogProc: WM_CREATE received.\n");
 
             // Create sans-serif font using system message font
-            // Corrected structure name from NONCLIENTMETRICA to NONCLIENTMETRICSA
             NONCLIENTMETRICSA ncm = { sizeof(NONCLIENTMETRICSA) };
             SystemParametersInfoA(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
             hSansFont = CreateFontIndirectA(&ncm.lfMessageFont);
@@ -1062,7 +1021,7 @@ void ShowModalAboutDialog(HWND hwndParent) {
 
     // Center over parent
     RECT rcParent;
-    GetWindowRect(hwndParent, &rcParent);
+    GetWindowRect(hwndParent, rcParent);
 
     // --- Calculate required dialog width and height before creating the window ---
     // This initial size is an estimate. The WM_CREATE handler will calculate the
@@ -1316,32 +1275,32 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             HMENU hMenuHelp = CreateMenu(); // Create Help menu
 
             // File Menu
-            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_NEW, STRING_ACTION_NEW_ANSI); // Added New menu item
-            AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL); // Separator after New
-            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_OPEN, STRING_ACTION_OPEN_ANSI); // Added Open menu item
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_NEW, STRING_ACTION_NEW_ANSI);
+            AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL);
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_OPEN, STRING_ACTION_OPEN_ANSI);
             AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_RUN, STRING_ACTION_RUN_ANSI);
-            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_COPYOUTPUT, STRING_ACTION_COPY_ANSI); // Keep existing Copy Output
-            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_CLEAROUTPUT, STRING_ACTION_CLEAROUTPUT_ANSI); // Added Clear Output menu item
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_COPYOUTPUT, STRING_ACTION_COPY_ANSI);
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_CLEAROUTPUT, STRING_ACTION_CLEAROUTPUT_ANSI);
             AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL);
-            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_SETTINGS, STRING_ACTION_SETTINGS_ANSI); // Added Settings menu item
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_SETTINGS, STRING_ACTION_SETTINGS_ANSI);
             AppendMenuA(hMenuFile, MF_SEPARATOR, 0, NULL);
-            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_EXIT, STRING_ACTION_EXIT_ANSI); // Updated menu text
+            AppendMenuA(hMenuFile, MF_STRING, IDM_FILE_EXIT, STRING_ACTION_EXIT_ANSI);
 
             // Edit Menu
             AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_CUT, STRING_ACTION_CUT_ANSI);
-            AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_COPY, STRING_ACTION_COPY_ANSI_EDIT); // Use specific Copy string for Edit menu
+            AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_COPY, STRING_ACTION_COPY_ANSI_EDIT);
             AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_PASTE, STRING_ACTION_PASTE_ANSI);
             AppendMenuA(hMenuEdit, MF_SEPARATOR, 0, NULL);
             AppendMenuA(hMenuEdit, MF_STRING, IDM_EDIT_SELECTALL, STRING_ACTION_SELECTALL_ANSI);
 
 
             // Help Menu
-            AppendMenuA(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, STRING_ACTION_ABOUT_ANSI); // Added About menu item
+            AppendMenuA(hMenuHelp, MF_STRING, IDM_HELP_ABOUT, STRING_ACTION_ABOUT_ANSI);
 
             // Append menus to menubar
             AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuFile, STRING_FILE_MENU_ANSI);
-            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuEdit, STRING_EDIT_MENU_ANSI); // Append Edit menu
-            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuHelp, STRING_HELP_MENU_ANSI); // Append Help menu
+            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuEdit, STRING_EDIT_MENU_ANSI);
+            AppendMenuA(hMenubar, MF_POPUP, (UINT_PTR)hMenuHelp, STRING_HELP_MENU_ANSI);
 
 
             SetMenu(hwnd, hMenubar);
@@ -1388,17 +1347,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             // Standard Output (Edit control - NOW READ-WRITE) - Apply monospaced font
-            // Removed ES_READONLY style
             hwndOutputEdit = CreateWindowExA(
                 WS_EX_CLIENTEDGE, WC_EDITA, "", // Use WC_EDITA, WS_EX_CLIENTEDGE provides the border
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL, // Removed ES_READONLY
-                10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL); // Reverted to IDC_EDIT_OUTPUT
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL,
+                10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL);
             if (hMonoFont) {
                 SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to edit control
             }
-
-
-            // Removed "New Window" Button creation
 
 
             // --- Debug Print: Check the class name of the created output control ---
@@ -1430,7 +1385,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             int editTopMargin = 5;
             int spacing = 10;
             int minimumEditHeight = 30; // Minimum height for any edit box
-            // Removed button dimensions and margin
 
 
             int currentY = margin;
@@ -1457,8 +1411,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             int outputEditHeight = height - currentY - margin; // Remaining space
             if (outputEditHeight < minimumEditHeight) outputEditHeight = minimumEditHeight; // Ensure minimum
             MoveWindow(hwndOutputEdit, margin, currentY, width - 2 * margin, outputEditHeight, TRUE); // Move edit control
-
-            // Removed "New Window" button MoveWindow call
 
 
             break; // End of WM_SIZE
@@ -1624,7 +1576,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                              break;
                         }
                         params->output_buffer_pos = 0;
-                        // Removed initialization of current_output_text and current_output_len
 
                         DebugPrint("IDM_FILE_RUN: InterpreterParams prepared.\n");
 
@@ -1644,7 +1595,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             free(code);
                             free(input);
                             free(params->output_buffer); // Free output buffer
-                            // Removed free(params->current_output_text);
                             free(params);
                         } else {
                             DebugPrint("IDM_FILE_RUN: CreateThread succeeded.\n");
@@ -1655,7 +1605,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         }
                     } else {
                         DebugPrint("IDM_FILE_RUN: Interpreter already running.\n");
-                        // Optionally, display a message that interpreter is already running
+                        // Optional: Display a message that interpreter is already running
                         // AppendText(hwndOutputEdit, "--- Interpreter is already running ---\r\n");
                     }
                     break; // Break for IDM_FILE_RUN case
@@ -1812,14 +1762,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     break;
                 }
 
-                // Removed individual Select All cases
-                // case IDM_SELECTALL_CODE:
-                // case IDM_SELECTALL_INPUT:
-                // case IDM_SELECTALL_OUTPUT:
-
-
-                // Removed case IDC_BUTTON_NEW_WINDOW:
-
                 case IDM_HELP_ABOUT:
                 {
                     DebugPrint("WM_COMMAND: IDM_HELP_ABOUT received.\n");
@@ -1837,38 +1779,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             break; // End of WM_COMMAND (handled cases break internally)
         }
-
-        // --- Input Blocking for Output Edit Control ---
-        // Removed manual input blocking as ES_READONLY is used
-        /*
-        case WM_KEYDOWN:
-        case WM_CHAR:
-        case WM_UNICHAR: // For Unicode characters (though we are using ANSI)
-        case WM_INPUT:   // Raw input messages
-        case WM_IME_CHAR: // Input Method Editor messages
-        {
-            // Check if the message is for the output edit control
-            if ((HWND)lParam == hwndOutputEdit) {
-                // If it is, block it by returning 0
-                DebugPrint("WindowProc: Blocking input message %u for output edit control.\n", uMsg);
-                return 0; // Indicate that we handled the message and it should not be processed further
-            }
-            // Otherwise, let the default window procedure handle it
-            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-        }
-        */
-
-        // Intercept mouse clicks that could lead to text modification
-        // Simplified mouse message handling as ES_READONLY handles selection
-        case WM_LBUTTONDOWN:
-        case WM_RBUTTONDOWN:
-        case WM_MBUTTONDOWN:
-        case WM_MOUSEMOVE:
-        {
-             // Let the default window procedure handle mouse messages for selection in ES_READONLY control
-             return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-        }
-
 
         case WM_CTLCOLORSTATIC:
         {
@@ -1997,7 +1907,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case WM_CLOSE:
             DebugPrint("WM_CLOSE received.\n");
-            // Removed the MessageBoxA confirmation and directly destroy the window
             DestroyWindow(hwnd);
             return 0; // Indicate we handled the message
 
@@ -2040,10 +1949,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Store instance handle in our global variable
     hInst = hInstance;
 
-    // Initialize Common Controls - Corrected initialization as per DeepSeek suggestion
+    // Initialize Common Controls
     INITCOMMONCONTROLSEX iccex;
     iccex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    // Include ICC_USEREX_CLASSES for extended controls if needed, and ICC_WIN95_CLASSES for 3D look
     iccex.dwICC = ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES | ICC_USEREX_CLASSES;
     DebugPrint("WinMain: Initializing Common Controls with ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES | ICC_USEREX_CLASSES.\n");
     if (!InitCommonControlsEx(&iccex)) {
@@ -2088,10 +1996,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
     DebugPrint("WinMain: Main window class registered successfully.\n");
-
-    // Removed registration note for the blank modal dialog class.
-    // Note: The settings modal dialog class is registered within ShowModalSettingsDialog when first called.
-    // Note: The about modal dialog class is registered within ShowModalAboutDialog when first called.
 
 
     // --- Load Accelerator Table ---
