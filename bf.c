@@ -37,7 +37,7 @@
 #define IDC_CHECK_DEBUG_BASIC       303
 // IDOK and IDCANCEL are predefined as 1 and 2
 
-// New Control ID for the dummy checkbox in the new window
+// New Control ID for the dummy checkbox in the new window/dialog
 #define IDC_DUMMY_CHECKBOX 501
 
 
@@ -88,9 +88,8 @@
 #define STRING_OK_ANSI "OK"
 #define STRING_CANCEL_ANSI "Cancel"
 #define STRING_NEW_WINDOW_BUTTON_ANSI "New Window" // Text for the new button
-#define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Window" // Title for the new window (Changed from Dialog)
-#define NEW_WINDOW_CLASS_NAME_ANSI "BlankWindowClass" // New window class name
-#define STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox" // Text for the dummy checkbox
+#define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Window" // Title for the new window/dialog
+#define NEW_WINDOW_CLASS_NAME_ANSI "BlankWindowClass" // This constant is no longer used for modal dialog
 
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
@@ -118,9 +117,6 @@ INT_PTR CALLBACK BlankDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the settings dialog procedure
 INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-
-// Forward declaration of the new blank window procedure
-LRESULT CALLBACK BlankWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 
 // Helper function to append text to an EDIT control (Defined before use)
@@ -563,21 +559,27 @@ INT_PTR CALLBACK BlankDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
     {
         case WM_INITDIALOG:
             DebugPrint("BlankDialogProc: WM_INITDIALOG received.\n");
-            // You could create controls or draw here if needed for the blank dialog
+            // No need to create controls here if they are defined in the template
             return (INT_PTR)TRUE; // Return TRUE to set the keyboard focus
 
         case WM_COMMAND:
+        { // Added braces for scope
             DebugPrint("BlankDialogProc: WM_COMMAND received.\n");
-            // Handle commands within the dialog (e.g., button clicks)
-            switch (LOWORD(wParam))
-            {
-                case IDOK:
-                case IDCANCEL:
+            int wmId = LOWORD(wParam);
+            switch (wmId) {
+                case IDC_DUMMY_CHECKBOX:
+                    DebugPrint("BlankDialogProc: Dummy checkbox clicked.\n");
+                    // Dummy handler for the checkbox
+                    break;
+                case IDOK: // Standard OK button
+                case IDCANCEL: // Standard Cancel button
                     DebugPrint("BlankDialogProc: IDOK or IDCANCEL received. Ending dialog.\n");
                     EndDialog(hDlg, LOWORD(wParam)); // Close the dialog
                     return (INT_PTR)TRUE;
             }
             break; // End of WM_COMMAND
+        }
+
 
         case WM_CLOSE:
             DebugPrint("BlankDialogProc: WM_CLOSE received. Ending dialog.\n");
@@ -589,51 +591,6 @@ INT_PTR CALLBACK BlankDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
             return (INT_PTR)FALSE; // Return FALSE for messages not handled
     }
     return (INT_PTR)FALSE; // Default return for handled messages that don't return earlier
-}
-
-// --- New Blank Window Procedure ---
-LRESULT CALLBACK BlankWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    switch (uMsg) {
-        case WM_CREATE:
-            DebugPrint("BlankWindowProc: WM_CREATE received.\n");
-            // Create a dummy checkbox in the new window
-            CreateWindowA(
-                "BUTTON",               // Class name
-                STRING_DUMMY_CHECKBOX_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                10, 10, 200, 20,        // Position and size (x, y, width, height)
-                hwnd,                   // Parent window handle
-                (HMENU)IDC_DUMMY_CHECKBOX, // Control ID
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("BlankWindowProc: Dummy checkbox created.\n");
-            break;
-
-        case WM_COMMAND:
-        { // Added braces for scope
-            int wmId = LOWORD(wParam);
-            switch (wmId) {
-                case IDC_DUMMY_CHECKBOX:
-                    DebugPrint("BlankWindowProc: Dummy checkbox clicked.\n");
-                    // Dummy handler - you would add logic here to respond to the click
-                    // For example, toggle a state variable or perform an action.
-                    // No action needed for a dummy checkbox.
-                    break;
-                // Add other command handlers for controls in this window here
-            }
-            break; // End of WM_COMMAND
-        }
-
-
-        case WM_DESTROY:
-            DebugPrint("BlankWindowProc: WM_DESTROY received.\n");
-            // Clean up any resources specific to this window
-            break;
-        default:
-            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
-    }
-    return 0;
 }
 
 
@@ -1326,32 +1283,272 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 case IDC_BUTTON_NEW_WINDOW:
                 {
-                    DebugPrint("WM_COMMAND: IDC_BUTTON_NEW_WINDOW received. Creating new blank window.\n");
+                    DebugPrint("WM_COMMAND: IDC_BUTTON_NEW_WINDOW received. Creating new blank modal dialog.\n");
 
-                    // Create a new instance of the blank window class
-                    HWND hwndNew = CreateWindowExA(
-                        0,                                  // Optional window styles.
-                        NEW_WINDOW_CLASS_NAME_ANSI,         // Window class (ANSI)
-                        STRING_BLANK_WINDOW_TITLE_ANSI,     // Window title (ANSI)
-                        WS_OVERLAPPEDWINDOW,                // Window style
+                    // --- Prepare data for the dialog template in memory ---
 
-                        // Size and position
-                        CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, // Default size and position
-
-                        NULL,       // Parent window (NULL for top-level)
-                        NULL,       // Menu
-                        hInst,      // Instance handle
-                        NULL        // Additional application data
-                    );
-
-                    if (hwndNew == NULL) {
-                        DebugPrint("IDC_BUTTON_NEW_WINDOW: Failed to create new blank window. GetLastError: %lu\n", GetLastError());
-                        MessageBoxA(hwnd, "Failed to create new window!", "Error", MB_ICONEXCLAMATION | MB_OK);
-                    } else {
-                        DebugPrint("IDC_BUTTON_NEW_WINDOW: New blank window created successfully.\n");
-                        ShowWindow(hwndNew, SW_SHOW); // Show the new window
-                        UpdateWindow(hwndNew);       // Update the new window
+                    // Dialog Title (Wide Character)
+                    int title_len_ansi = strlen(STRING_BLANK_WINDOW_TITLE_ANSI);
+                    int title_len_wide = MultiByteToWideChar(CP_ACP, 0, STRING_BLANK_WINDOW_TITLE_ANSI, title_len_ansi, NULL, 0);
+                    WCHAR* blank_dialog_title_wide = (WCHAR*)malloc((title_len_wide + 1) * sizeof(WCHAR));
+                    if (!blank_dialog_title_wide) {
+                        DebugPrint("IDC_BUTTON_NEW_WINDOW: Failed to allocate memory for wide title string.\n");
+                        MessageBoxA(hwnd, "Memory allocation failed for dialog title.", "Error", MB_OK | MB_ICONERROR);
+                        break;
                     }
+                    MultiByteToWideChar(CP_ACP, 0, STRING_BLANK_WINDOW_TITLE_ANSI, title_len_ansi, blank_dialog_title_wide, title_len_wide);
+                    blank_dialog_title_wide[title_len_wide] = L'\0'; // Null-terminate wide string
+                    size_t title_string_size_wide = (title_len_wide + 1) * sizeof(WCHAR);
+
+                    // Control Class Names (Wide Character)
+                    const char* btn_class_ansi = "BUTTON";
+                    int btn_class_len_wide = MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, NULL, 0); // -1 for null terminator
+                    WCHAR* btn_class_wide = (WCHAR*)malloc(btn_class_len_wide * sizeof(WCHAR));
+                    if (!btn_class_wide) {
+                         DebugPrint("IDC_BUTTON_NEW_WINDOW: Failed to allocate memory for wide button class string.\n");
+                         free(blank_dialog_title_wide);
+                         MessageBoxA(hwnd, "Memory allocation failed for button class.", "Error", MB_OK | MB_ICONERROR);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, btn_class_wide, btn_class_len_wide);
+                    size_t btn_class_size_wide = btn_class_len_wide * sizeof(WCHAR);
+
+                    // Control Text (Wide Character)
+                    const char* dummy_checkbox_text_ansi = STRING_DUMMY_CHECKBOX_ANSI;
+                    int dummy_checkbox_text_len_wide = MultiByteToWideChar(CP_ACP, 0, dummy_checkbox_text_ansi, -1, NULL, 0);
+                    WCHAR* dummy_checkbox_text_wide = (WCHAR*)malloc(dummy_checkbox_text_len_wide * sizeof(WCHAR));
+                     if (!dummy_checkbox_text_wide) {
+                         DebugPrint("IDC_BUTTON_NEW_WINDOW: Failed to allocate memory for wide dummy checkbox text.\n");
+                         free(blank_dialog_title_wide);
+                         free(btn_class_wide);
+                         MessageBoxA(hwnd, "Memory allocation failed for checkbox text.", "Error", MB_OK | MB_ICONERROR);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, dummy_checkbox_text_ansi, -1, dummy_checkbox_text_wide, dummy_checkbox_text_len_wide);
+                    size_t dummy_checkbox_text_size_wide = dummy_checkbox_text_len_wide * sizeof(WCHAR);
+
+
+                    // --- Calculate total required memory size for the dialog template ---
+
+                    // Size of the base DLGTEMPLATEEX_WIDE structure
+                    size_t template_base_size = sizeof(MY_DLGTEMPLATEEX_WIDE);
+
+                    // Size of the menu name (WORD ordinal 0xFFFF followed by WORD 0 for no menu)
+                    size_t menu_size = sizeof(WORD) + sizeof(WORD); // 0xFFFF, 0
+
+                    // Size of the class name (WORD ordinal 0xFFFF followed by WORD 0 for default dialog class)
+                    size_t class_size = sizeof(WORD) + sizeof(WORD); // 0xFFFF, 0
+
+                    // Size of the title string
+                    size_t title_size = title_string_size_wide;
+
+                    // Size of the dialog item (checkbox)
+                    size_t item_base_size = sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    // Item class name size (BUTTON)
+                    size_t item_class_size = btn_class_size_wide;
+                    // Item title size (Dummy Checkbox text)
+                    size_t item_title_size = dummy_checkbox_text_size_wide;
+                    // Creation data size (WORD 0 for no creation data)
+                    size_t item_creation_data_size = sizeof(WORD);
+
+                    // Total size for one item = base size + class + title + creation data
+                    // Need to account for alignment before each string/data block
+                    size_t total_item_size = item_base_size;
+                    total_item_size = (total_item_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class
+                    total_item_size += item_class_size;
+                    total_item_size = (total_item_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    total_item_size += item_title_size;
+                    total_item_size = (total_item_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for creation data
+                    total_item_size += item_creation_data_size;
+                    // Ensure the final item size is DWORD aligned
+                    total_item_size = (total_item_size + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
+
+
+                    // Total template size = base size + menu + class + title + item(s)
+                    size_t total_template_size = template_base_size;
+                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for menu
+                    total_template_size += menu_size;
+                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class
+                    total_template_size += class_size;
+                    total_template_size = (total_template_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    total_template_size += title_size;
+                    // Align for the first dialog item (DWORD alignment)
+                    total_template_size = (total_template_size + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
+                    total_template_size += total_item_size; // Add size for the dummy checkbox item
+
+
+                    DebugPrint("IDC_BUTTON_NEW_WINDOW: Calculated total template size for modal dialog: %zu\n", total_template_size);
+
+
+                    // Allocate memory for the combined template and data
+                    HGLOBAL hGlobalTemplate = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, total_template_size);
+                    DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalAlloc returned %p\n", hGlobalTemplate);
+
+                    if (hGlobalTemplate) {
+                        LPBYTE pGlobalTemplate = (LPBYTE)GlobalLock(hGlobalTemplate);
+                        DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalLock returned %p\n", pGlobalTemplate);
+
+                        if (pGlobalTemplate) {
+                            LPBYTE pCurrent = pGlobalTemplate;
+
+                            // Copy the fixed template structure
+                            MY_DLGTEMPLATEEX_WIDE template_fixed_part = {
+                                0x0001, // dlgVer
+                                0xFFFF, // signature (indicates DLGTEMPLATEEX)
+                                0,      // helpID
+                                0,      // exStyle
+                                WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION | DS_SETFONT, // style (Added DS_SETFONT)
+                                1,      // cDlgItems (Number of controls - 1 for the checkbox)
+                                100,    // x (arbitrary position)
+                                100,    // y (arbitrary position)
+                                250,    // cx (width)
+                                100     // cy (height)
+                            };
+                            memcpy(pCurrent, &template_fixed_part, sizeof(MY_DLGTEMPLATEEX_WIDE));
+                            pCurrent += sizeof(MY_DLGTEMPLATEEX_WIDE);
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied fixed template structure. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+                            // Align for menu (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for menu. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy menu name (ordinal for no menu)
+                            LPWORD pMenu = (LPWORD)pCurrent;
+                            *pMenu++ = 0xFFFF; // Indicates ordinal
+                            *pMenu = 0;      // Ordinal 0 for no menu
+                            pCurrent += sizeof(WORD) * 2; // Size of ordinal + 0
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied menu ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for class (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for class. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy class name (ordinal for default dialog class)
+                             LPWORD pClass = (LPWORD)pCurrent;
+                            *pClass++ = 0xFFFF; // Indicates ordinal
+                            *pClass = 0;      // Ordinal 0 for default dialog class
+                            pCurrent += sizeof(WORD) * 2; // Size of ordinal + 0
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied class ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for title (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for title. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy the wide title string
+                            LPWSTR pTitle = (LPWSTR)pCurrent;
+                            memcpy(pTitle, blank_dialog_title_wide, title_string_size_wide);
+                            pCurrent += title_string_size_wide;
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied wide title string. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+                            // Align for font (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for font. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy font information (size, weight, italic, typeface)
+                            LPWORD pFont = (LPWORD)pCurrent;
+                            *pFont++ = 8; // Point size (adjust as needed)
+                            *pFont++ = FW_NORMAL; // Weight
+                            *pFont++ = FALSE; // Italic
+                            pCurrent += sizeof(WORD) * 3;
+                            // Copy font typeface (Wide Character) - using a common dialog font
+                            const char* dialog_font_ansi = "MS Shell Dlg"; // Common dialog font
+                            int dialog_font_len_wide = MultiByteToWideChar(CP_ACP, 0, dialog_font_ansi, -1, NULL, 0);
+                            WCHAR* dialog_font_wide = (WCHAR*)malloc(dialog_font_len_wide * sizeof(WCHAR));
+                            if (dialog_font_wide) {
+                                MultiByteToWideChar(CP_ACP, 0, dialog_font_ansi, -1, dialog_font_wide, dialog_font_len_wide);
+                                memcpy(pCurrent, dialog_font_wide, dialog_font_len_wide * sizeof(WCHAR));
+                                pCurrent += dialog_font_len_wide * sizeof(WCHAR);
+                                free(dialog_font_wide); // Free the temporary wide font string
+                            } else {
+                                DebugPrint("IDC_BUTTON_NEW_WINDOW: Failed to allocate memory for wide dialog font string.\n");
+                                // Handle error or use a default (which memcpy with NULL would do, but might crash)
+                                // For robustness, you might want to handle this more gracefully.
+                            }
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied font info. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for the first dialog item (DWORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for first item. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // --- Add Dialog Item (Dummy Checkbox) ---
+                            MY_DLGITEMTEMPLATEEX_WIDE item_checkbox = {
+                                0,      // helpID
+                                0,      // exStyle
+                                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // style
+                                10,     // x
+                                10,     // y
+                                200,    // cx (width)
+                                20,     // cy (height)
+                                IDC_DUMMY_CHECKBOX // id
+                            };
+                            memcpy(pCurrent, &item_checkbox, sizeof(MY_DLGITEMTEMPLATEEX_WIDE));
+                            pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                             DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied item structure. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for item class (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for item class. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy item class name (BUTTON)
+                            LPWSTR pItemClass = (LPWSTR)pCurrent;
+                            memcpy(pItemClass, btn_class_wide, btn_class_size_wide);
+                            pCurrent += btn_class_size_wide;
+                             DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied item class. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for item title (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for item title. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy item title (Dummy Checkbox text)
+                            LPWSTR pItemTitle = (LPWSTR)pCurrent;
+                            memcpy(pItemTitle, dummy_checkbox_text_wide, dummy_checkbox_text_size_wide);
+                            pCurrent += dummy_checkbox_text_size_wide;
+                             DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied item title. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            // Align for item creation data (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Aligned for item creation data. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+                            // Copy item creation data (WORD 0)
+                            LPWORD pCreationDataSize = (LPWORD)pCurrent;
+                            *pCreationDataSize = 0; // Size of creation data (0 bytes)
+                            pCurrent += sizeof(WORD);
+                             DebugPrint("IDC_BUTTON_NEW_WINDOW: Copied item creation data size. Current offset: %zu\n", pCurrent - pGlobalTemplate);
+
+
+                            GlobalUnlock(hGlobalTemplate);
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalUnlock called.\n");
+
+
+                            // Call DialogBoxIndirectW with the memory handle
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Calling DialogBoxIndirectW...\n");
+                            // Use BlankDialogProc for the new modal dialog
+                            INT_PTR dialog_result = DialogBoxIndirectW(hInst, (LPCDLGTEMPLATE)hGlobalTemplate, hwnd, BlankDialogProc);
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: DialogBoxIndirectW returned %Id.\n", dialog_result);
+
+
+                            if (dialog_result == -1) {
+                                DebugPrint("IDC_BUTTON_NEW_WINDOW: GetLastError after DialogBoxIndirectW: %lu\n", GetLastError());
+                                MessageBoxA(hwnd, "Failed to show modal dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
+                            }
+
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: Freeing global memory.\n");
+                            GlobalFree(hGlobalTemplate); // Free the allocated memory
+
+                        } else {
+                            DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalLock failed for dialog template. GetLastError: %lu\n", GetLastError());
+                             MessageBoxA(hwnd, "Failed to lock memory for dialog template.", "Error", MB_OK | MB_ICONERROR);
+                        }
+                    } else {
+                        DebugPrint("IDC_BUTTON_NEW_WINDOW: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
+                        MessageBoxA(hwnd, "Failed to allocate memory for dialog template.", "Error", MB_OK | MB_ICONERROR);
+                    }
+
+                    // Free the allocated wide strings
+                    free(blank_dialog_title_wide);
+                    free(btn_class_wide);
+                    free(dummy_checkbox_text_wide);
+                    DebugPrint("IDC_BUTTON_NEW_WINDOW: Freed wide string memory.\n");
 
                     break; // Break for IDC_BUTTON_NEW_WINDOW case
                 }
@@ -1552,24 +1749,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     DebugPrint("WinMain: Main window class registered successfully.\n");
 
-    // --- Register the new blank window class ---
-    WNDCLASSA wcBlank = { 0 }; // Use WNDCLASSA for ANSI
-
-    wcBlank.lpfnWndProc     = BlankWindowProc; // Use the new window procedure
-    wcBlank.hInstance       = hInstance;
-    wcBlank.lpszClassName = NEW_WINDOW_CLASS_NAME_ANSI; // Use the new class name
-    wcBlank.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wcBlank.hCursor         = LoadCursor(NULL, IDC_ARROW);
-    wcBlank.lpszMenuName  = NULL; // No menu for the blank window
-
-    DebugPrint("WinMain: Registering blank window class.\n");
-    if (!RegisterClassA(&wcBlank)) // Use RegisterClassA for ANSI
-    {
-        DebugPrint("WinMain: Blank window registration failed.\n");
-        MessageBoxA(NULL, "Blank Window Registration Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
-        // Don't return, let the main window still try to create
-    }
-    DebugPrint("WinMain: Blank window class registered successfully.\n");
+    // --- Note: Removed registration for NEW_WINDOW_CLASS_NAME_ANSI as we are using a modal dialog ---
+    // WNDCLASSA wcBlank = { 0 }; // Use WNDCLASSA for ANSI
+    // wcBlank.lpfnWndProc     = BlankWindowProc; // Use the new window procedure
+    // wcBlank.hInstance       = hInstance;
+    // wcBlank.lpszClassName = NEW_WINDOW_CLASS_NAME_ANSI; // Use the new class name
+    // wcBlank.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    // wcBlank.hCursor         = LoadCursor(NULL, IDC_ARROW);
+    // wcBlank.lpszMenuName  = NULL; // No menu for the blank window
+    // DebugPrint("WinMain: Registering blank window class.\n");
+    // if (!RegisterClassA(&wcBlank)) // Use RegisterClassA for ANSI
+    // {
+    //     DebugPrint("WinMain: Blank window registration failed.\n");
+    //     MessageBoxA(NULL, "Blank Window Registration Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
+    // }
+    // DebugPrint("WinMain: Blank window class registered successfully.\n");
 
 
     // --- Load Accelerator Table ---
@@ -1585,7 +1779,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     };
 
     // Create the accelerator table from the structure
-    hAccelTable = CreateAcceleratorTableA(AccelTable, sizeof(AccelTable) / sizeof(ACCEL)); // Corrected typo here: ACCel -> ACCEL
+    hAccelTable = CreateAcceleratorTableA(AccelTable, sizeof(AccelTable) / sizeof(ACCEL));
 
     if (hAccelTable == NULL) {
         DebugPrint("WinMain: Failed to create accelerator table.\n");
