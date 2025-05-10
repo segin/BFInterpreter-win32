@@ -13,7 +13,7 @@
 #define IDC_STATIC_INPUT    103
 #define IDC_EDIT_INPUT      104
 #define IDC_STATIC_OUTPUT   105
-#define IDC_STATIC_OUTPUT_DISPLAY 107 // New ID for the static output display
+#define IDC_EDIT_OUTPUT     106 // Reverted back to EDIT control ID
 
 // Define Menu IDs
 #define IDM_FILE_RUN        201
@@ -91,7 +91,7 @@ HINSTANCE hInst;
 HFONT hMonoFont = NULL;
 HWND hwndCodeEdit = NULL;
 HWND hwndInputEdit = NULL;
-HWND hwndOutputDisplay = NULL; // Renamed for the static control
+HWND hwndOutputEdit = NULL; // Reverted back to original name for edit control
 HANDLE g_hInterpreterThread = NULL; // Handle for the worker thread
 volatile BOOL g_bInterpreterRunning = FALSE; // Flag to indicate if interpreter is running (volatile for thread safety)
 HACCEL hAccelTable; // Handle to the accelerator table
@@ -610,28 +610,28 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
 
-            // Standard Output (Static Label)
-            hwndOutputDisplay = CreateWindowA(
-                "STATIC", "", // Use "STATIC" class
-                WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP, // Styles for static control
-                10, 325, 560, 150, hwnd, (HMENU)IDC_STATIC_OUTPUT_DISPLAY, hInst, NULL); // Use new ID
+            // Standard Output (Read-only Edit)
+            hwndOutputEdit = CreateWindowExA(
+                WS_EX_CLIENTEDGE, "EDIT", "",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY, // Added ES_READONLY
+                10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL); // Reverted to IDC_EDIT_OUTPUT
 
             // --- Debug Print: Check the class name of the created output control ---
             char class_name[256];
-            GetClassNameA(hwndOutputDisplay, class_name, sizeof(class_name));
-            DebugPrint("WM_CREATE: Created output control with handle %p and class name '%s'.\n", (void*)hwndOutputDisplay, class_name);
+            GetClassNameA(hwndOutputEdit, class_name, sizeof(class_name));
+            DebugPrint("WM_CREATE: Created output control with handle %p and class name '%s'.\n", (void*)hwndOutputEdit, class_name);
 
 
             // Set initial text (ANSI)
             SetWindowTextA(hwndCodeEdit, STRING_CODE_TEXT_ANSI);
             SetWindowTextA(hwndInputEdit, STRING_INPUT_TEXT_ANSI);
-            SetWindowTextA(hwndOutputDisplay, ""); // Set text for the static control
+            SetWindowTextA(hwndOutputEdit, ""); // Set text for the edit control
 
-            // Apply the monospaced font to all EDIT controls and the static output
+            // Apply the monospaced font to all EDIT controls
             if (hMonoFont) {
                 SendMessageA(hwndCodeEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
                 SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-                SendMessageA(hwndOutputDisplay, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to static control
+                SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to edit control
             }
 
             SetFocus(hwndCodeEdit);
@@ -668,12 +668,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             MoveWindow(hwndInputEdit, margin, currentY, width - 2 * margin, inputEditHeight, TRUE);
             currentY += inputEditHeight + spacing;
 
-            // Output Label & Display (Static)
+            // Output Label & Edit
             MoveWindow(GetDlgItem(hwnd, IDC_STATIC_OUTPUT), margin, currentY, width - 2 * margin, labelHeight, TRUE);
             currentY += labelHeight + editTopMargin;
-            int outputDisplayHeight = height - currentY - margin; // Remaining space
-            if (outputDisplayHeight < minimumEditHeight) outputDisplayHeight = minimumEditHeight; // Ensure minimum
-            MoveWindow(hwndOutputDisplay, margin, currentY, width - 2 * margin, outputDisplayHeight, TRUE); // Move static control
+            int outputEditHeight = height - currentY - margin; // Remaining space
+            if (outputEditHeight < minimumEditHeight) outputEditHeight = minimumEditHeight; // Ensure minimum
+            MoveWindow(hwndOutputEdit, margin, currentY, width - 2 * margin, outputEditHeight, TRUE); // Move edit control
 
             break; // End of WM_SIZE
         }
@@ -1016,16 +1016,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     DebugPrint("WM_COMMAND: IDM_FILE_RUN received.\n");
                     if (!g_bInterpreterRunning) {
                         DebugPrint("IDM_FILE_RUN: Interpreter not running, attempting to start.\n");
-                        // Clear previous output by setting static control text to empty
-                        DebugPrint("IDM_FILE_RUN: Clearing output display (handle %p).\n", (void*)hwndOutputDisplay);
-                        SetWindowTextA(hwndOutputDisplay, "");
+                        // Clear previous output by setting edit control text to empty
+                        DebugPrint("IDM_FILE_RUN: Clearing output edit (handle %p).\n", (void*)hwndOutputEdit);
+                        SetWindowTextA(hwndOutputEdit, "");
 
                         // Get code and input text (ANSI)
                         int code_len = GetWindowTextLengthA(hwndCodeEdit);
                         char* code = (char*)malloc((code_len + 1) * sizeof(char));
                         if (!code) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for code.\n");
-                            SetWindowTextA(hwndOutputDisplay, STRING_MEM_ERROR_CODE_ANSI);
+                            SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_CODE_ANSI);
                             break;
                         }
                         GetWindowTextA(hwndCodeEdit, code, code_len + 1);
@@ -1035,7 +1035,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         char* input = (char*)malloc((input_len + 1) * sizeof(char));
                          if (!input) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for input.\n");
-                            SetWindowTextA(hwndOutputDisplay, STRING_MEM_ERROR_INPUT_ANSI);
+                            SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_INPUT_ANSI);
                             free(code); // Free previously allocated code
                             break;
                         }
@@ -1046,7 +1046,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         InterpreterParams* params = (InterpreterParams*)malloc(sizeof(InterpreterParams));
                         if (!params) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for thread parameters.\n");
-                            SetWindowTextA(hwndOutputDisplay, STRING_MEM_ERROR_PARAMS_ANSI);
+                            SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_PARAMS_ANSI);
                             free(code);
                             free(input);
                             break;
@@ -1060,7 +1060,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         params->output_buffer = (char*)malloc(OUTPUT_BUFFER_SIZE);
                         if (!params->output_buffer) {
                              DebugPrint("IDM_FILE_RUN: Memory allocation failed for output buffer.\n");
-                             SetWindowTextA(hwndOutputDisplay, "Error: Memory allocation failed for output buffer.\r\n");
+                             SetWindowTextA(hwndOutputEdit, "Error: Memory allocation failed for output buffer.\r\n");
                              free(code);
                              free(input);
                              free(params);
@@ -1084,7 +1084,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             char error_msg[256];
                             sprintf_s(error_msg, sizeof(error_msg), "IDM_FILE_RUN: CreateThread failed with error %lu\n", GetLastError());
                             DebugPrint(error_msg);
-                            SetWindowTextA(hwndOutputDisplay, STRING_THREAD_ERROR_ANSI);
+                            SetWindowTextA(hwndOutputEdit, STRING_THREAD_ERROR_ANSI);
                             free(code);
                             free(input);
                             free(params->output_buffer); // Free output buffer
@@ -1108,8 +1108,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDM_FILE_COPYOUTPUT:
                 { // Added braces to scope variables
                     DebugPrint("WM_COMMAND: IDM_FILE_COPYOUTPUT received.\n");
-                    // For a static control, we can just get the entire text
-                    int textLen = GetWindowTextLengthA(hwndOutputDisplay);
+                    // For an edit control, we can get the entire text
+                    int textLen = GetWindowTextLengthA(hwndOutputEdit);
                     if (textLen > 0) {
                          DebugPrint("IDM_FILE_COPYOUTPUT: Output text length > 0.\n");
                         // Need +1 for null terminator
@@ -1119,7 +1119,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             char* pText = (char*)GlobalLock(hGlobal);
                             if(pText) {
                                 DebugPrint("IDM_FILE_COPYOUTPUT: GlobalLock succeeded.\n");
-                                GetWindowTextA(hwndOutputDisplay, pText, textLen + 1);
+                                GetWindowTextA(hwndOutputEdit, pText, textLen + 1);
                                 GlobalUnlock(hGlobal);
                                 DebugPrint("IDM_FILE_COPYOUTPUT: Text copied to global memory.\n");
 
@@ -1163,22 +1163,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                  case IDM_FILE_CLEAROUTPUT:
                  {
                      DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
-                     // Clear the text in the static output control
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output display (handle %p).\n", (void*)hwndOutputDisplay);
-                     SetWindowTextA(hwndOutputDisplay, "");
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared. Forcing repaint.\n");
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Clearing output edit (handle %p).\n", (void*)hwndOutputEdit);
+
+                     // Temporarily remove ES_READONLY to allow text modification
+                     LONG_PTR style = GetWindowLongPtrA(hwndOutputEdit, GWL_STYLE);
+                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style & ~ES_READONLY);
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Removed ES_READONLY style.\n");
+
+                     // Clear the text
+                     SetWindowTextA(hwndOutputEdit, "");
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared.\n");
+
+                     // Restore ES_READONLY style
+                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style);
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Restored ES_READONLY style.\n");
 
                      // Attempt to force a clean repaint
                      RECT rcClient;
-                     GetClientRect(hwndOutputDisplay, &rcClient);
-                     InvalidateRect(hwndOutputDisplay, &rcClient, TRUE); // Invalidate and erase background
-                     // Explicitly send WM_ERASEBKGND
-                     SendMessageA(hwndOutputDisplay, WM_ERASEBKGND, (WPARAM)GetDC(hwndOutputDisplay), 0);
-                     ReleaseDC(hwndOutputDisplay, GetDC(hwndOutputDisplay)); // Release the DC
-
-                     UpdateWindow(hwndOutputDisplay); // Force immediate paint
-                     // Also send WM_PAINT directly as an experiment
-                     SendMessageA(hwndOutputDisplay, WM_PAINT, 0, 0);
+                     GetClientRect(hwndOutputEdit, &rcClient);
+                     InvalidateRect(hwndOutputEdit, &rcClient, TRUE); // Invalidate and erase background
+                     UpdateWindow(hwndOutputEdit); // Force immediate paint
 
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
 
@@ -1203,13 +1207,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     break;
 
                 case IDM_SELECTALL_OUTPUT:
-                     DebugPrint("WM_COMMAND: IDM_SELECTALL_OUTPUT received. Selecting all text in output static.\n");
-                    // Note: Static controls don't support selection like edit controls.
-                    // We can't "select all" in a static control in the same way.
-                    // If the goal is to make the text selectable for copying, we might need
-                    // to revisit using a read-only edit control or implement custom drawing/selection.
-                    // For now, we'll just log that the command was received.
-                    DebugPrint("IDM_SELECTALL_OUTPUT: Static controls do not support text selection via EM_SETSEL.\n");
+                     DebugPrint("WM_COMMAND: IDM_SELECTALL_OUTPUT received. Selecting all text in output edit.\n");
+                    // Select all text in the output edit control
+                    SendMessageA(hwndOutputEdit, EM_SETSEL, 0, -1);
                     break;
 
 
@@ -1232,45 +1232,27 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         // Note: No 'break' needed after return
 
          case WM_APP_INTERPRETER_OUTPUT_STRING: {
-            // Append a string to output static control (used for error messages and buffered output) (ANSI)
+            // Append a string to output edit control (used for error messages and buffered output) (ANSI)
             DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING received.\n");
-            HWND hStatic = hwndOutputDisplay; // Use the handle for the static control
+            HWND hEdit = hwndOutputEdit; // Use the handle for the edit control
             LPCSTR szString = (LPCSTR)lParam; // Assuming lParam is a valid string pointer
 
             if (szString) {
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Updating static control with handle %p.\n", (void*)hStatic);
-                // Get current text from the static control
-                int current_len = GetWindowTextLengthA(hStatic);
-                int new_chunk_len = strlen(szString);
-                int total_len = current_len + new_chunk_len;
+                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Appending to edit control with handle %p.\n", (void*)hEdit);
 
-                // Allocate buffer for combined text
-                char* combined_text = (char*)malloc((total_len + 1) * sizeof(char));
-                if (combined_text) {
-                    GetWindowTextA(hStatic, combined_text, current_len + 1); // Get current text
-                    strcat_s(combined_text, total_len + 1, szString); // Concatenate new chunk
+                // Get current text length
+                int current_len = GetWindowTextLengthA(hEdit);
 
-                    SetWindowTextA(hStatic, combined_text); // Set the combined text for the static control
-                    DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Text replaced with combined output.\n");
+                // Set selection to the end to append
+                SendMessageA(hEdit, EM_SETSEL, (WPARAM)current_len, (LPARAM)current_len);
 
-                    free(combined_text); // Free the temporary combined buffer
-                } else {
-                     DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Failed to allocate memory for combined text.\n");
-                     // Fallback: if memory allocation fails, we can't update the static control.
-                     // In a real app, you might want to handle this more gracefully,
-                     // perhaps by showing an error message elsewhere.
-                }
+                // Replace the empty selection at the end with the new string
+                SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)szString);
+                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Appended text.\n");
 
-                // Static controls don't have scrolling like edit controls.
-                // The text will be updated, but only the visible portion will be shown.
-                // Forcing a repaint might be necessary.
-                InvalidateRect(hStatic, NULL, TRUE);
-                UpdateWindow(hStatic);
-                // Also send WM_PAINT directly as an experiment
-                SendMessageA(hStatic, WM_PAINT, 0, 0);
-
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Repaint forced for static control.\n");
-
+                // Auto-scroll to the bottom
+                SendMessageA(hEdit, EM_SCROLLCARET, 0, 0);
+                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Scrolled to caret.\n");
 
                 // Free the memory allocated for the string in the worker thread
                 free((void*)lParam);
@@ -1378,7 +1360,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         {FVIRTKEY | FCONTROL, 'O', IDM_FILE_OPEN},  // Accelerator for Open
         {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_CODE}, // Ctrl+A for Code Edit
         {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_INPUT}, // Ctrl+A for Input Edit
-        // Note: Ctrl+A for output static is not added here as static controls don't support EM_SETSEL
+        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_OUTPUT} // Ctrl+A for Output Edit (now that it's an edit control)
     };
 
     // Create the accelerator table from the structure
