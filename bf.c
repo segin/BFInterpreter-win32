@@ -106,8 +106,9 @@
 // Removed STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox"
 // Removed STRING_BLANK_DIALOG_DISMISS_ANSI "Dismiss"
 #define SETTINGS_DIALOG_CLASS_NAME_ANSI "SettingsDialogClass" // New window class name for the settings dialog
-#define STRING_ABOUT_TITLE_ANSI "About Win32 BF Interpreter" // Title for the About box
-#define STRING_ABOUT_TEXT_ANSI "Win32 Brainfuck Interpreter\r\nVersion 1.0\r\nCreated by [Your Name or Placeholder]\r\n\r\nSimple interpreter with basic features." // Text for the About box
+#define STRING_ABOUT_TITLE_ANSI "About BF Interpreter-win32" // Updated title for the About box
+// Updated text for the About box with new name and copyright
+#define STRING_ABOUT_TEXT_ANSI "BF Interpreter-win32\r\nVersion 1.0\r\nCopyright 2015-2025 Kirn Gill II <segin2005@gmail.com>\r\n\r\nSimple interpreter with basic features."
 #define ABOUT_DIALOG_CLASS_NAME_ANSI "AboutDialogClass" // New window class name for the about dialog
 
 
@@ -869,8 +870,8 @@ LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
             // Calculate dialog width and height
             // Width: Max of text width and button width + margins
             int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
-             // Add padding/buffer
-            int dlgW = required_content_width + margin * 2 + 20; // Increased buffer slightly
+             // Reduce padding/buffer slightly to reduce overall width
+            int dlgW = required_content_width + margin * 2 + 10; // Reduced buffer
 
             // Height: Top margin + text height + spacing + button height + bottom margin
             int dlgH = margin + textSize.cy + button_spacing + button_height + margin + 10; // Added buffer slightly
@@ -883,7 +884,7 @@ LRESULT CALLBACK AboutModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARA
                 WS_CHILD | WS_VISIBLE | SS_CENTER, // Styles (SS_CENTER for centered text)
                 margin, margin, dlgW - 2 * margin, textSize.cy, // Position and size
                 hwnd,                   // Parent window handle
-                (HMENU)IDC_STATIC_ABOUT_TEXT, // Control ID // Corrected ID
+                (HMENU)IDC_STATIC_ABOUT_TEXT, // Control ID
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
@@ -1004,8 +1005,8 @@ void ShowModalAboutDialog(HWND hwndParent) {
      // Calculate dialog width and height (matching WM_CREATE)
     // Width: Max of text width and button width + margins
     int required_content_width = (textSize.cx > button_width ? textSize.cx : button_width);
-     // Add padding/buffer
-    int dlgW = required_content_width + margin * 2 + 20; // Increased buffer slightly
+     // Reduce padding/buffer slightly to reduce overall width
+    int dlgW = required_content_width + margin * 2 + 10; // Reduced buffer
 
     // Height: Top margin + text height + spacing + button height + bottom margin
     int dlgH = margin + textSize.cy + button_spacing + button_height + margin + 10; // Added buffer slightly
