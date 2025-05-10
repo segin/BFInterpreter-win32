@@ -451,7 +451,7 @@ MY_DLGTEMPLATEEX settings_dialog_template_fixed = {
     0xFFFF, // signature (indicates DLGTEMPLATEEX)
     0,      // helpID
     0,      // exStyle
-    WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION | DS_SETFONT, // style (added DS_SETFONT)
+    WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION, // style (removed DS_SETFONT)
     0,      // cDlgItems (we add controls dynamically)
     100,    // x (arbitrary position)
     100,    // y (arbitrary position)
@@ -806,6 +806,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             GlobalUnlock(hGlobalTemplate);
                             DebugPrint("IDM_FILE_SETTINGS: GlobalUnlock called.\n");
 
+
                             // Call DialogBoxIndirect with the memory handle
                             DebugPrint("IDM_FILE_SETTINGS: Calling DialogBoxIndirect...\n");
                             INT_PTR dialog_result = DialogBoxIndirect(hInst, (LPCDLGTEMPLATE)hGlobalTemplate, hwnd, SettingsDialogProc);
@@ -1009,7 +1010,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 default:
                     // Let Windows handle any messages we don't process
-                    // DebugPrint("WM_COMMAND: Unhandled command.\n"); // Too noisy
+                    // DebugPrint("WM_COMMAND: Unhandled message.\n"); // Too noisy
                     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
             }
             break; // End of WM_COMMAND (handled cases break internally)
