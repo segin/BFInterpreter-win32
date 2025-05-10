@@ -1556,7 +1556,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     };
 
     // Create the accelerator table from the structure
-    hAccelTable = CreateAcceleratorTableA(AccelTable, sizeof(AccelTable) / sizeof(ACCel));
+    hAccelTable = CreateAcceleratorTableA(AccelTable, sizeof(AccelTable) / sizeof(ACCEL)); // Corrected typo here: ACCel -> ACCEL
 
     if (hAccelTable == NULL) {
         DebugPrint("WinMain: Failed to create accelerator table.\n");
