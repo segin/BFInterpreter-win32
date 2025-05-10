@@ -14,6 +14,7 @@
 #define IDC_EDIT_INPUT      104
 #define IDC_STATIC_OUTPUT   105
 #define IDC_EDIT_OUTPUT     106 // Reverted back to EDIT control ID
+#define IDC_BUTTON_NEW_WINDOW 108 // New ID for the "New Window" button
 
 // Define Menu IDs
 #define IDM_FILE_RUN        201
@@ -81,6 +82,8 @@
 #define STRING_DEBUG_BASIC_ANSI "Enable basic debug messages"
 #define STRING_OK_ANSI "OK"
 #define STRING_CANCEL_ANSI "Cancel"
+#define STRING_NEW_WINDOW_BUTTON_ANSI "New Window" // Text for the new button
+#define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Window" // Title for the new window
 
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
@@ -101,8 +104,10 @@ volatile BOOL g_bDebugInterpreter = TRUE; // Default to TRUE
 volatile BOOL g_bDebugOutput = TRUE;      // Default to TRUE
 volatile BOOL g_bDebugBasic = TRUE;       // Default to TRUE
 
+// Forward declaration of the blank window procedure
+LRESULT CALLBACK BlankWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-// Forward declaration of the window procedure
+// Forward declaration of the main window procedure
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // Forward declaration of the settings dialog procedure
 INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
@@ -541,6 +546,33 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
     return (INT_PTR)FALSE; // Let the system handle other messages
 }
 
+// --- Blank Window Procedure ---
+LRESULT CALLBACK BlankWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+        case WM_CREATE:
+            DebugPrint("BlankWindowProc: WM_CREATE received.\n");
+            // You could create controls or draw here if needed for the blank window
+            break;
+
+        case WM_SIZE:
+            DebugPrint("BlankWindowProc: WM_SIZE received.\n");
+            // Handle resizing for the blank window if needed
+            break;
+
+        case WM_DESTROY:
+            DebugPrint("BlankWindowProc: WM_DESTROY received.\n");
+            // Clean up resources specific to the blank window if any
+            break;
+
+        default:
+            // Let Windows handle any messages we don't process
+            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+    }
+    return 0;
+}
+
 
 // --- Window Procedure ---
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -616,6 +648,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL, // Removed ES_READONLY
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL); // Reverted to IDC_EDIT_OUTPUT
 
+            // New Window Button (positioned in the top-right)
+            // Get client rectangle to position relative to window size
+            RECT rcClient;
+            GetClientRect(hwnd, &rcClient);
+            int buttonWidth = 100;
+            int buttonHeight = 25;
+            int buttonMargin = 10;
+
+            CreateWindowA("BUTTON", STRING_NEW_WINDOW_BUTTON_ANSI, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                          rcClient.right - buttonWidth - buttonMargin, buttonMargin, buttonWidth, buttonHeight,
+                          hwnd, (HMENU)IDC_BUTTON_NEW_WINDOW, hInst, NULL);
+
+
             // --- Debug Print: Check the class name of the created output control ---
             char class_name[256];
             GetClassNameA(hwndOutputEdit, class_name, sizeof(class_name));
@@ -649,6 +694,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             int editTopMargin = 5;
             int spacing = 10;
             int minimumEditHeight = 30; // Minimum height for any edit box
+            int buttonWidth = 100; // Keep button size fixed
+            int buttonHeight = 25;
+            int buttonMargin = 10;
+
 
             int currentY = margin;
 
@@ -674,6 +723,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             int outputEditHeight = height - currentY - margin; // Remaining space
             if (outputEditHeight < minimumEditHeight) outputEditHeight = minimumEditHeight; // Ensure minimum
             MoveWindow(hwndOutputEdit, margin, currentY, width - 2 * margin, outputEditHeight, TRUE); // Move edit control
+
+            // Position the "New Window" button in the top-right
+            MoveWindow(GetDlgItem(hwnd, IDC_BUTTON_NEW_WINDOW),
+                       width - buttonWidth - buttonMargin, buttonMargin,
+                       buttonWidth, buttonHeight, TRUE);
+
 
             break; // End of WM_SIZE
         }
@@ -1210,6 +1265,70 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     SendMessageA(hwndOutputEdit, EM_SETSEL, 0, -1);
                     break;
 
+                case IDC_BUTTON_NEW_WINDOW:
+                {
+                    DebugPrint("WM_COMMAND: IDC_BUTTON_NEW_WINDOW received. Creating new blank window.\n");
+
+                    // Define window class name for the blank window (ANSI string)
+                    const char BLANK_WINDOW_CLASS_NAME[] = "BlankWindowClass";
+
+                    // --- Register the blank window class (only needs to be done once) ---
+                    static BOOL blankWindowClassRegistered = FALSE; // Use static to ensure it's registered only once
+                    if (!blankWindowClassRegistered) {
+                         WNDCLASSA wcBlank = { 0 }; // Use WNDCLASSA for ANSI
+
+                         wcBlank.lpfnWndProc     = BlankWindowProc;
+                         wcBlank.hInstance       = hInst;
+                         wcBlank.lpszClassName = BLANK_WINDOW_CLASS_NAME;
+                         wcBlank.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Default window background
+                         wcBlank.hCursor         = LoadCursor(NULL, IDC_ARROW);
+
+                         DebugPrint("IDC_BUTTON_NEW_WINDOW: Registering blank window class.\n");
+                         if (!RegisterClassA(&wcBlank)) // Use RegisterClassA for ANSI
+                         {
+                             DebugPrint("IDC_BUTTON_NEW_WINDOW: Blank window class registration failed.\n");
+                             // Handle registration failure (e.g., show a message box)
+                             MessageBoxA(hwnd, "Failed to register blank window class!", "Error", MB_ICONEXCLAMATION | MB_OK);
+                             break; // Exit the button handler
+                         }
+                         blankWindowClassRegistered = TRUE;
+                         DebugPrint("IDC_BUTTON_NEW_WINDOW: Blank window class registered successfully.\n");
+                    }
+
+
+                    // --- Create the blank window ---
+                    DebugPrint("IDC_BUTTON_NEW_WINDOW: Creating blank window.\n");
+                    HWND hwndBlank = CreateWindowExA(
+                        0,                                      // Optional window styles.
+                        BLANK_WINDOW_CLASS_NAME,                // Window class (ANSI)
+                        STRING_BLANK_WINDOW_TITLE_ANSI,         // Window title (ANSI)
+                        WS_OVERLAPPEDWINDOW,                    // Window style (provides resize, minimize, maximize, close)
+
+                        // Size and position (default)
+                        CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
+
+                        NULL,       // Parent window (NULL for top-level)
+                        NULL,       // Menu
+                        hInst,      // Instance handle
+                        NULL        // Additional application data
+                    );
+
+                    if (hwndBlank == NULL)
+                    {
+                         DebugPrint("IDC_BUTTON_NEW_WINDOW: Blank window creation failed. GetLastError: %lu\n", GetLastError());
+                         MessageBoxA(hwnd, "Failed to create blank window!", "Error", MB_ICONEXCLAMATION | MB_OK);
+                         break; // Exit the button handler
+                    }
+                    DebugPrint("IDC_BUTTON_NEW_WINDOW: Blank window created successfully.\n");
+
+                    // --- Show and update the blank window ---
+                    ShowWindow(hwndBlank, SW_SHOW);
+                    UpdateWindow(hwndBlank);
+                    DebugPrint("IDC_BUTTON_NEW_WINDOW: Blank window shown and updated.\n");
+
+                    break; // Break for IDC_BUTTON_NEW_WINDOW case
+                }
+
 
                 default:
                     // Let Windows handle any messages we don't process (ANSI version)
@@ -1227,8 +1346,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_INPUT:   // Raw input messages
         case WM_IME_CHAR: // Input Method Editor messages
         {
+            // Check if the message is for the output edit control
             if ((HWND)lParam == hwndOutputEdit) {
-                // If the message is for the output edit control, block it
+                // If it is, block it by returning 0
                 DebugPrint("WindowProc: Blocking input message %u for output edit control.\n", uMsg);
                 return 0; // Indicate that we handled the message and it should not be processed further
             }
@@ -1241,9 +1361,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_RBUTTONDOWN:
         case WM_MBUTTONDOWN:
         {
+             // Check if the message is for the output edit control
              if ((HWND)lParam == hwndOutputEdit) {
-                // If the message is for the output edit control, allow it.
-                // This is needed for selection to work.
+                // If it is, allow it. This is needed for selection to work.
                 DebugPrint("WindowProc: Allowing mouse down message %u for output edit control (for selection).\n", uMsg);
                 return DefWindowProcA(hwnd, uMsg, wParam, lParam);
             }
@@ -1254,6 +1374,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         // Allow mouse move for selection, but block if it's not part of a drag selection
         case WM_MOUSEMOVE:
         {
+             // Check if the message is for the output edit control
              if ((HWND)lParam == hwndOutputEdit) {
                  // Check if a mouse button is down (indicating a drag selection)
                  if (wParam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) {
@@ -1383,26 +1504,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     hInst = hInstance;
 
     // Define window class name (ANSI string)
-    const char CLASS_NAME[] = "BFInterpreterWindowClass";
+    const char MAIN_WINDOW_CLASS_NAME[] = "BFInterpreterWindowClass";
 
-    // --- Register the window class ---
+    // --- Register the main window class ---
     WNDCLASSA wc = { 0 }; // Use WNDCLASSA for ANSI
 
     wc.lpfnWndProc     = WindowProc;
     wc.hInstance       = hInstance;
-    wc.lpszClassName = CLASS_NAME;
+    wc.lpszClassName = MAIN_WINDOW_CLASS_NAME;
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.hCursor         = LoadCursor(NULL, IDC_ARROW);
     wc.lpszMenuName  = NULL; // We will create menu programmatically
 
-    DebugPrint("WinMain: Registering window class.\n");
+    DebugPrint("WinMain: Registering main window class.\n");
     if (!RegisterClassA(&wc)) // Use RegisterClassA for ANSI
     {
-        DebugPrint("WinMain: Window registration failed.\n");
+        DebugPrint("WinMain: Main window registration failed.\n");
         MessageBoxA(NULL, STRING_WINDOW_REG_ERROR_ANSI, "Error", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
-    DebugPrint("WinMain: Window class registered successfully.\n");
+    DebugPrint("WinMain: Main window class registered successfully.\n");
 
     // --- Load Accelerator Table ---
     // Define the accelerator table structure
@@ -1427,11 +1548,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
 
-    // --- Create the window ---
-    DebugPrint("WinMain: Creating window.\n");
+    // --- Create the main window ---
+    DebugPrint("WinMain: Creating main window.\n");
     HWND hwnd = CreateWindowExA(
         0,                                  // Optional window styles.
-        CLASS_NAME,                         // Window class (ANSI)
+        MAIN_WINDOW_CLASS_NAME,             // Window class (ANSI)
         WINDOW_TITLE_ANSI,                  // Window title (ANSI)
         WS_OVERLAPPEDWINDOW,                // Window style
 
@@ -1446,16 +1567,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (hwnd == NULL)
     {
-        DebugPrint("WinMain: Window creation failed.\n");
+        DebugPrint("WinMain: Main window creation failed.\n");
         MessageBoxA(NULL, STRING_WINDOW_CREATION_ERROR_ANSI, "Error", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
-    DebugPrint("WinMain: Window created successfully.\n");
+    DebugPrint("WinMain: Main window created successfully.\n");
 
-    // --- Show and update the window ---
+    // --- Show and update the main window ---
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
-    DebugPrint("WinMain: Window shown and updated.\n");
+    DebugPrint("WinMain: Main window shown and updated.\n");
 
     // --- Message Loop ---
     DebugPrint("WinMain: Entering message loop.\n");
