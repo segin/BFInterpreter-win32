@@ -439,6 +439,24 @@ typedef struct {
     // - Title (null-terminated WCHAR string)
     // - Font (if DS_SETFONT): WORD pointsize, BYTE weight, BYTE italic, null-terminated WCHAR typeface
 } MY_DLGTEMPLATEEX_WIDE;
+
+// --- Dialog Item Template Structure (Wide Character Version) ---
+// This structure defines a control within a dialog box template in memory.
+#pragma pack(push, 1) // Ensure byte alignment
+typedef struct {
+    DWORD  helpID;
+    DWORD  exStyle;
+    DWORD  style;
+    short  x;
+    short  y;
+    short  cx;
+    short  cy;
+    DWORD  id;
+    // Followed by:
+    // - Class (WORD ordinal or null-terminated WCHAR string)
+    // - Title (WORD ordinal or null-terminated WCHAR string)
+    // - Creation Data (WORD size, followed by data)
+} MY_DLGITEMTEMPLATEEX_WIDE;
 #pragma pack(pop)
 
 
@@ -454,37 +472,27 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
     switch (message) {
         case WM_INITDIALOG:
             DebugPrint("SettingsDialogProc: WM_INITDIALOG received.\n");
-            // Create controls dynamically and initialize the declared HWND variables
-            hCheckInterpreter = CreateWindowA("BUTTON", STRING_DEBUG_INTERPRETER_ANSI,
-                          WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-                          10, 10, 300, 20, hDlg, (HMENU)IDC_CHECK_DEBUG_INTERPRETER, hInst, NULL);
-            if (hCheckInterpreter == NULL) DebugPrint("SettingsDialogProc: Failed to create IDC_CHECK_DEBUG_INTERPRETER. Error: %lu\n", GetLastError());
-
-            hCheckOutput = CreateWindowA("BUTTON", STRING_DEBUG_OUTPUT_ANSI,
-                          WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-                          10, 35, 300, 20, hDlg, (HMENU)IDC_CHECK_DEBUG_OUTPUT, hInst, NULL);
-             if (hCheckOutput == NULL) DebugPrint("SettingsDialogProc: Failed to create IDC_CHECK_DEBUG_OUTPUT. Error: %lu\n", GetLastError());
-
-            hCheckBasic = CreateWindowA("BUTTON", STRING_DEBUG_BASIC_ANSI,
-                          WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
-                          10, 60, 300, 20, hDlg, (HMENU)IDC_CHECK_DEBUG_BASIC, hInst, NULL);
-             if (hCheckBasic == NULL) DebugPrint("SettingsDialogProc: Failed to create IDC_CHECK_DEBUG_BASIC. Error: %lu\n", GetLastError());
-
-            hBtnOK = CreateWindowA("BUTTON", STRING_OK_ANSI,
-                          WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                          80, 100, 75, 25, hDlg, (HMENU)IDOK, hInst, NULL);
-             if (hBtnOK == NULL) DebugPrint("SettingsDialogProc: Failed to create IDOK button. Error: %lu\n", GetLastError());
-
-            hBtnCancel = CreateWindowA("BUTTON", STRING_CANCEL_ANSI,
-                          WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-                          160, 100, 75, 25, hDlg, (HMENU)IDCANCEL, hInst, NULL);
-             if (hBtnCancel == NULL) DebugPrint("SettingsDialogProc: Failed to create IDCANCEL button. Error: %lu\n", GetLastError());
-
+            // Get handles to the dynamically created controls
+            hCheckInterpreter = GetDlgItem(hDlg, IDC_CHECK_DEBUG_INTERPRETER);
+            hCheckOutput = GetDlgItem(hDlg, IDC_CHECK_DEBUG_OUTPUT);
+            hCheckBasic = GetDlgItem(hDlg, IDC_CHECK_DEBUG_BASIC);
+            hBtnOK = GetDlgItem(hDlg, IDOK);
+            hBtnCancel = GetDlgItem(hDlg, IDCANCEL);
 
             // Initialize checkboxes based on current global settings
-            CheckDlgButton(hDlg, IDC_CHECK_DEBUG_INTERPRETER, g_bDebugInterpreter ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hDlg, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hDlg, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
+            if (hCheckInterpreter) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_INTERPRETER, g_bDebugInterpreter ? BST_CHECKED : BST_UNCHECKED);
+            if (hCheckOutput) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
+            if (hCheckBasic) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
+
+            // Apply the monospaced font to controls if needed (though dialog controls usually inherit)
+            // if (hMonoFont) {
+            //     if (hCheckInterpreter) SendMessage(hCheckInterpreter, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            //     if (hCheckOutput) SendMessage(hCheckOutput, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            //     if (hCheckBasic) SendMessage(hCheckBasic, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            //     if (hBtnOK) SendMessage(hBtnOK, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            //     if (hBtnCancel) SendMessage(hBtnCancel, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            // }
+
             return (INT_PTR)TRUE; // Return TRUE to set the keyboard focus
         case WM_COMMAND:
         { // Added braces to create a new scope
@@ -738,7 +746,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     DebugPrint("WM_COMMAND: IDM_FILE_SETTINGS received. Attempting to show dialog.\n");
 
-                    // Convert ANSI title to Wide Character title
+                    // --- Prepare data for the dialog template in memory ---
+
+                    // Dialog Title (Wide Character)
                     int title_len_ansi = strlen(STRING_SETTINGS_TITLE_ANSI);
                     int title_len_wide = MultiByteToWideChar(CP_ACP, 0, STRING_SETTINGS_TITLE_ANSI, title_len_ansi, NULL, 0);
                     WCHAR* settings_dialog_title_wide = (WCHAR*)malloc((title_len_wide + 1) * sizeof(WCHAR));
@@ -749,9 +759,96 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     MultiByteToWideChar(CP_ACP, 0, STRING_SETTINGS_TITLE_ANSI, title_len_ansi, settings_dialog_title_wide, title_len_wide);
                     settings_dialog_title_wide[title_len_wide] = L'\0'; // Null-terminate wide string
+                    size_t title_string_size_wide = (title_len_wide + 1) * sizeof(WCHAR);
 
-                    // Calculate the required size for the template in memory
-                    // Size of the base structure
+                    // Control Class Names (Wide Character)
+                    const char* btn_class_ansi = "BUTTON";
+                    int btn_class_len_wide = MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, NULL, 0); // -1 for null terminator
+                    WCHAR* btn_class_wide = (WCHAR*)malloc(btn_class_len_wide * sizeof(WCHAR));
+                    if (!btn_class_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide button class string.\n");
+                         free(settings_dialog_title_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, btn_class_wide, btn_class_len_wide);
+                    size_t btn_class_size_wide = btn_class_len_wide * sizeof(WCHAR);
+
+
+                    // Control Text (Wide Character)
+                    const char* debug_interp_text_ansi = STRING_DEBUG_INTERPRETER_ANSI;
+                    int debug_interp_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_interp_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_interp_text_wide = (WCHAR*)malloc(debug_interp_text_len_wide * sizeof(WCHAR));
+                     if (!debug_interp_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug interp text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_interp_text_ansi, -1, debug_interp_text_wide, debug_interp_text_len_wide);
+                    size_t debug_interp_text_size_wide = debug_interp_text_len_wide * sizeof(WCHAR);
+
+                    const char* debug_output_text_ansi = STRING_DEBUG_OUTPUT_ANSI;
+                    int debug_output_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_output_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_output_text_wide = (WCHAR*)malloc(debug_output_text_len_wide * sizeof(WCHAR));
+                     if (!debug_output_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug output text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_output_text_ansi, -1, debug_output_text_wide, debug_output_text_len_wide);
+                    size_t debug_output_text_size_wide = debug_output_text_len_wide * sizeof(WCHAR);
+
+                    const char* debug_basic_text_ansi = STRING_DEBUG_BASIC_ANSI;
+                    int debug_basic_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_basic_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_basic_text_wide = (WCHAR*)malloc(debug_basic_text_len_wide * sizeof(WCHAR));
+                     if (!debug_basic_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug basic text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_basic_text_ansi, -1, debug_basic_text_wide, debug_basic_text_len_wide);
+                    size_t debug_basic_text_size_wide = debug_basic_text_len_wide * sizeof(WCHAR);
+
+                    const char* ok_text_ansi = STRING_OK_ANSI;
+                    int ok_text_len_wide = MultiByteToWideChar(CP_ACP, 0, ok_text_ansi, -1, NULL, 0);
+                    WCHAR* ok_text_wide = (WCHAR*)malloc(ok_text_len_wide * sizeof(WCHAR));
+                     if (!ok_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide OK text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         free(debug_basic_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, ok_text_ansi, -1, ok_text_wide, ok_text_len_wide);
+                    size_t ok_text_size_wide = ok_text_len_wide * sizeof(WCHAR);
+
+                    const char* cancel_text_ansi = STRING_CANCEL_ANSI;
+                    int cancel_text_len_wide = MultiByteToWideChar(CP_ACP, 0, cancel_text_ansi, -1, NULL, 0);
+                    WCHAR* cancel_text_wide = (WCHAR*)malloc(cancel_text_len_wide * sizeof(WCHAR));
+                     if (!cancel_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide Cancel text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         free(debug_basic_text_wide);
+                         free(ok_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, cancel_text_ansi, -1, cancel_text_wide, cancel_text_len_wide);
+                    size_t cancel_text_size_wide = cancel_text_len_wide * sizeof(WCHAR);
+
+
+                    // --- Calculate total required memory size ---
+
+                    // Size of the base DLGTEMPLATEEX_WIDE structure
                     size_t template_base_size = sizeof(MY_DLGTEMPLATEEX_WIDE);
 
                     // Size of the menu name (WORD ordinal 0xFFFF followed by WORD 0 for no menu)
@@ -760,33 +857,62 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     // Size of the class name (WORD ordinal 0xFFFF followed by WORD 0 for default dialog class)
                     size_t class_size = sizeof(WORD) + sizeof(WORD); // 0xFFFF, 0
 
-                     // Size of the wide title string including null terminator
-                    size_t title_string_size_wide = (title_len_wide + 1) * sizeof(WCHAR);
+                    // Calculate total size for the fixed part + menu + class + title
+                    size_t header_size = template_base_size;
+                    header_size = (header_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for menu
+                    header_size += menu_size;
+                    header_size = (header_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for class
+                    header_size += class_size;
+                    header_size = (header_size + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Align for title
+                    header_size += title_string_size_wide;
 
-                    // Calculate total required size, ensuring proper alignment between sections.
-                    size_t current_offset = template_base_size;
+                    // Calculate size for each control item template and its data
+                    size_t control_item_size = sizeof(MY_DLGITEMTEMPLATEEX_WIDE);
+                    size_t control_data_size = 0;
 
-                    // Align for menu (WORD alignment)
-                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1);
-                    size_t offset_menu = current_offset;
-                    current_offset += menu_size;
+                    // Checkbox 1: Class (string), Title (string), No Creation Data
+                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_size += (debug_interp_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_size += sizeof(WORD); // Creation data size (0)
 
-                    // Align for class (WORD alignment)
-                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1);
-                    size_t offset_class = current_offset;
-                    current_offset += class_size;
+                     // Checkbox 2: Class (string), Title (string), No Creation Data
+                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_size += (debug_output_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_size += sizeof(WORD); // Creation data size (0)
 
-                    // Align for title (WORD alignment)
-                    current_offset = (current_offset + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1);
-                    size_t offset_title = current_offset;
-                    current_offset += title_string_size_wide;
+                    // Checkbox 3: Class (string), Title (string), No Creation Data
+                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_size += (debug_basic_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_size += sizeof(WORD); // Creation data size (0)
 
-                    // Final size must be DWORD aligned
-                    size_t total_template_size = (current_offset + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
+                    // OK Button: Class (string), Title (string), No Creation Data
+                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_size += (ok_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_size += sizeof(WORD); // Creation data size (0)
+
+                    // Cancel Button: Class (string), Title (string), No Creation Data
+                    control_data_size += (btn_class_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned class size
+                    control_data_size += (cancel_text_size_wide + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1); // Aligned title size
+                    control_data_size += sizeof(WORD); // Creation data size (0)
+
+
+                    // Total size = header size + (number of controls * aligned control item size) + total control data size
+                    // Each DLGITEMTEMPLATEEX must be DWORD aligned.
+                    size_t total_controls = 5; // 3 checkboxes + 2 buttons
+                    size_t total_control_items_size = 0;
+                    for (size_t i = 0; i < total_controls; ++i) {
+                         total_control_items_size += (sizeof(MY_DLGITEMTEMPLATEEX_WIDE) + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
+                    }
+
+
+                    size_t total_template_size = header_size + total_control_items_size + control_data_size;
+
+                    // Ensure the final size is DWORD aligned
+                    total_template_size = (total_template_size + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1);
 
 
                     DebugPrint("IDM_FILE_SETTINGS: Calculated total template size: %zu\n", total_template_size);
-                    DebugPrint("IDM_FILE_SETTINGS: Offsets - Base: 0, Menu: %zu, Class: %zu, Title: %zu\n", 0, offset_menu, offset_class, offset_title);
+                    DebugPrint("IDM_FILE_SETTINGS: Header size: %zu, Total control items size: %zu, Total control data size: %zu\n", header_size, total_control_items_size, control_data_size);
 
 
                     // Allocate memory for the combined template and data
@@ -798,6 +924,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         DebugPrint("IDM_FILE_SETTINGS: GlobalLock returned %p\n", pGlobalTemplate);
 
                         if (pGlobalTemplate) {
+                            LPBYTE pCurrent = pGlobalTemplate;
+
                             // Copy the fixed template structure
                             MY_DLGTEMPLATEEX_WIDE template_fixed_part = {
                                 0x0001, // dlgVer
@@ -805,33 +933,92 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 0,      // helpID
                                 0,      // exStyle
                                 WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION, // style (removed DS_SETFONT)
-                                0,      // cDlgItems (we add controls dynamically)
+                                (WORD)total_controls, // cDlgItems (Number of controls)
                                 100,    // x (arbitrary position)
                                 100,    // y (arbitrary position)
                                 350,    // cx (width)
                                 150     // cy (height)
                             };
-                            memcpy(pGlobalTemplate, &template_fixed_part, sizeof(MY_DLGTEMPLATEEX_WIDE));
+                            memcpy(pCurrent, &template_fixed_part, sizeof(MY_DLGTEMPLATEEX_WIDE));
+                            pCurrent += sizeof(MY_DLGTEMPLATEEX_WIDE);
                             DebugPrint("IDM_FILE_SETTINGS: Copied fixed template structure.\n");
 
+                            // Align for menu (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
                             // Copy menu name (ordinal for no menu)
-                            LPWORD pMenu = (LPWORD)(pGlobalTemplate + offset_menu);
+                            LPWORD pMenu = (LPWORD)pCurrent;
                             *pMenu++ = 0xFFFF; // Indicates ordinal
                             *pMenu = 0;      // Ordinal 0 for no menu
+                            pCurrent += menu_size;
                             DebugPrint("IDM_FILE_SETTINGS: Copied menu ordinal.\n");
 
 
+                            // Align for class (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
                             // Copy class name (ordinal for default dialog class)
-                            LPWORD pClass = (LPWORD)(pGlobalTemplate + offset_class);
+                            LPWORD pClass = (LPWORD)pCurrent;
                             *pClass++ = 0xFFFF; // Indicates ordinal
                             *pClass = 0;      // Ordinal 0 for default dialog class
+                            pCurrent += class_size;
                             DebugPrint("IDM_FILE_SETTINGS: Copied class ordinal.\n");
 
 
+                            // Align for title (WORD alignment)
+                            pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
                             // Copy the wide title string
-                            LPWSTR pTitle = (LPWSTR)(pGlobalTemplate + offset_title);
+                            LPWSTR pTitle = (LPWSTR)pCurrent;
                             memcpy(pTitle, settings_dialog_title_wide, title_string_size_wide);
+                            pCurrent += title_string_size_wide;
                             DebugPrint("IDM_FILE_SETTINGS: Copied wide title string.\n");
+
+
+                            // --- Add Control Item Templates ---
+
+                            // Helper macro to add a control item
+                            #define ADD_CONTROL_ITEM(id, class_wide, text_wide, x, y, cx, cy, style, exStyle) \
+                            { \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1)); /* DWORD align */ \
+                                MY_DLGITEMTEMPLATEEX_WIDE item_template = { \
+                                    0, /* helpID */ \
+                                    exStyle, \
+                                    style | WS_CHILD | WS_VISIBLE, \
+                                    x, y, cx, cy, \
+                                    (DWORD)id \
+                                }; \
+                                memcpy(pCurrent, &item_template, sizeof(MY_DLGITEMTEMPLATEEX_WIDE)); \
+                                pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE); \
+                                \
+                                /* Copy Class Name (string) */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                LPWSTR pItemClass = (LPWSTR)pCurrent; \
+                                size_t item_class_len = wcslen(class_wide) + 1; \
+                                memcpy(pItemClass, class_wide, item_class_len * sizeof(WCHAR)); \
+                                pCurrent += item_class_len * sizeof(WCHAR); \
+                                \
+                                /* Copy Title (string) */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                LPWSTR pItemText = (LPWSTR)pCurrent; \
+                                size_t item_text_len = wcslen(text_wide) + 1; \
+                                memcpy(pItemText, text_wide, item_text_len * sizeof(WCHAR)); \
+                                pCurrent += item_text_len * sizeof(WCHAR); \
+                                \
+                                /* Creation Data (always 0 size for standard controls) */ \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
+                                LPWORD pCreationDataSize = (LPWORD)pCurrent; \
+                                *pCreationDataSize = 0; /* Size of creation data */ \
+                                pCurrent += sizeof(WORD); \
+                                DebugPrint("IDM_FILE_SETTINGS: Added control ID %u.\n", id); \
+                            }
+
+
+                            // Add Checkboxes
+                            ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_INTERPRETER, btn_class_wide, debug_interp_text_wide, 10, 10, 300, 20, BS_AUTOCHECKBOX, 0);
+                            ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_OUTPUT, btn_class_wide, debug_output_text_wide, 10, 35, 300, 20, BS_AUTOCHECKBOX, 0);
+                            ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_BASIC, btn_class_wide, debug_basic_text_wide, 10, 60, 300, 20, BS_AUTOCHECKBOX, 0);
+
+                            // Add Buttons
+                            ADD_CONTROL_ITEM(IDOK, btn_class_wide, ok_text_wide, 80, 100, 75, 25, BS_DEFPUSHBUTTON, 0);
+                            ADD_CONTROL_ITEM(IDCANCEL, btn_class_wide, cancel_text_wide, 160, 100, 75, 25, BS_PUSHBUTTON, 0);
 
 
                             GlobalUnlock(hGlobalTemplate);
@@ -858,9 +1045,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         DebugPrint("IDM_FILE_SETTINGS: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
                     }
 
-                    // Free the allocated wide title string
+                    // Free the allocated wide strings
                     free(settings_dialog_title_wide);
-                    DebugPrint("IDM_FILE_SETTINGS: Freed wide title string memory.\n");
+                    free(btn_class_wide);
+                    free(debug_interp_text_wide);
+                    free(debug_output_text_wide);
+                    free(debug_basic_text_wide);
+                    free(ok_text_wide);
+                    free(cancel_text_wide);
+                    DebugPrint("IDM_FILE_SETTINGS: Freed wide string memory.\n");
 
 
                     DebugPrint("WM_COMMAND: Settings dialog process finished.\n");
@@ -1046,7 +1239,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 default:
                     // Let Windows handle any messages we don't process
-                    // DebugPrint("WM_COMMAND: Unhandled message.\n"); // Too noisy
+                    // DebugPrint("WM_COMMAND: Unhandled command.\n"); // Too noisy
                     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
             }
             break; // End of WM_COMMAND (handled cases break internally)
