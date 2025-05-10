@@ -880,7 +880,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     GetTextExtentPoint32A(hdc, STRING_DEBUG_OUTPUT_ANSI, strlen(STRING_DEBUG_OUTPUT_ANSI), &size);
     if (size.cx > max_text_width) max_text_width = size.cx;
     GetTextExtentPoint32A(hdc, STRING_DEBUG_BASIC_ANSI, strlen(STRING_DEBUG_BASIC_ANSI), &size);
-    if (size.cx > max_text_width) maxTextWidth = size.cx;
+    if (size.cx > max_text_width) max_text_width = size.cx;
 
     SelectObject(hdc, hOldFont);
     ReleaseDC(NULL, hdc); // Release screen DC
@@ -963,8 +963,6 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     DebugPrint("ShowModalSettingsDialog: Parent window re-enabled.\n");
     // Set focus back to the parent window
     SetForegroundWindow(hwndParent);
-    DebugPrint("ShowModalSettingsDialog: Foreground window set to parent.\n");
-
     DebugPrint("ShowModalSettingsDialog finished.\n");
 }
 
