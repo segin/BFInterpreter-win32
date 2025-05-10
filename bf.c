@@ -941,35 +941,38 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             };
                             memcpy(pCurrent, &template_fixed_part, sizeof(MY_DLGTEMPLATEEX_WIDE));
                             pCurrent += sizeof(MY_DLGTEMPLATEEX_WIDE);
-                            DebugPrint("IDM_FILE_SETTINGS: Copied fixed template structure.\n");
+                            DebugPrint("IDM_FILE_SETTINGS: Copied fixed template structure. Current offset: %zu\n", pCurrent - pGlobalTemplate);
 
                             // Align for menu (WORD alignment)
                             pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDM_FILE_SETTINGS: Aligned for menu. Current offset: %zu\n", pCurrent - pGlobalTemplate);
                             // Copy menu name (ordinal for no menu)
                             LPWORD pMenu = (LPWORD)pCurrent;
                             *pMenu++ = 0xFFFF; // Indicates ordinal
                             *pMenu = 0;      // Ordinal 0 for no menu
                             pCurrent += menu_size;
-                            DebugPrint("IDM_FILE_SETTINGS: Copied menu ordinal.\n");
+                            DebugPrint("IDM_FILE_SETTINGS: Copied menu ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
 
 
                             // Align for class (WORD alignment)
                             pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDM_FILE_SETTINGS: Aligned for class. Current offset: %zu\n", pCurrent - pGlobalTemplate);
                             // Copy class name (ordinal for default dialog class)
                             LPWORD pClass = (LPWORD)pCurrent;
                             *pClass++ = 0xFFFF; // Indicates ordinal
                             *pClass = 0;      // Ordinal 0 for default dialog class
                             pCurrent += class_size;
-                            DebugPrint("IDM_FILE_SETTINGS: Copied class ordinal.\n");
+                            DebugPrint("IDM_FILE_SETTINGS: Copied class ordinal. Current offset: %zu\n", pCurrent - pGlobalTemplate);
 
 
                             // Align for title (WORD alignment)
                             pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1));
+                            DebugPrint("IDM_FILE_SETTINGS: Aligned for title. Current offset: %zu\n", pCurrent - pGlobalTemplate);
                             // Copy the wide title string
                             LPWSTR pTitle = (LPWSTR)pCurrent;
                             memcpy(pTitle, settings_dialog_title_wide, title_string_size_wide);
                             pCurrent += title_string_size_wide;
-                            DebugPrint("IDM_FILE_SETTINGS: Copied wide title string.\n");
+                            DebugPrint("IDM_FILE_SETTINGS: Copied wide title string. Current offset: %zu\n", pCurrent - pGlobalTemplate);
 
 
                             // --- Add Control Item Templates ---
@@ -988,6 +991,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 }; \
                                 memcpy(pCurrent, &item_template, sizeof(MY_DLGITEMTEMPLATEEX_WIDE)); \
                                 pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE); \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied item template for ID %u. Current offset: %zu\n", id, pCurrent - pGlobalTemplate); \
                                 \
                                 /* Copy Class Name (string) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
@@ -996,6 +1000,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 size_t item_class_len = wcslen(class_wide) + 1; \
                                 memcpy(pItemClass, class_wide, item_class_len * sizeof(WCHAR)); \
                                 pCurrent += item_class_len * sizeof(WCHAR); \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset: %zu\n", id, item_class_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
                                 \
                                 /* Copy Title (string) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
@@ -1004,6 +1009,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 size_t item_text_len = wcslen(text_wide) + 1; \
                                 memcpy(pItemText, text_wide, item_text_len * sizeof(WCHAR)); \
                                 pCurrent += item_text_len * sizeof(WCHAR); \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset: %zu\n", id, item_text_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
                                 \
                                 /* Creation Data (always 0 size for standard controls) */ \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align */ \
