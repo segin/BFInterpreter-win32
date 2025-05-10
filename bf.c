@@ -610,10 +610,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
 
-            // Standard Output (Read-only Edit)
+            // Standard Output (Edit control without ES_READONLY, input blocked manually)
             hwndOutputEdit = CreateWindowExA(
                 WS_EX_CLIENTEDGE, "EDIT", "",
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY, // Added ES_READONLY
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL, // Removed ES_READONLY
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL); // Reverted to IDC_EDIT_OUTPUT
 
             // --- Debug Print: Check the class name of the created output control ---
@@ -1169,18 +1169,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                      SendMessageA(hwndOutputEdit, WM_SETREDRAW, FALSE, 0);
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Disabled redrawing.\n");
 
-                     // Temporarily remove ES_READONLY to allow text modification
-                     LONG_PTR style = GetWindowLongPtrA(hwndOutputEdit, GWL_STYLE);
-                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style & ~ES_READONLY);
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Removed ES_READONLY style.\n");
-
                      // Clear the text
                      SetWindowTextA(hwndOutputEdit, "");
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared.\n");
-
-                     // Restore ES_READONLY style
-                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style);
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Restored ES_READONLY style.\n");
 
                      // Re-enable redrawing and force a repaint
                      SendMessageA(hwndOutputEdit, WM_SETREDRAW, TRUE, 0);
@@ -1227,6 +1218,61 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             break; // End of WM_COMMAND (handled cases break internally)
         }
+
+        // --- Input Blocking for Output Edit Control ---
+        // Intercept messages that could modify the text in the output edit control
+        case WM_KEYDOWN:
+        case WM_CHAR:
+        case WM_UNICHAR: // For Unicode characters (though we are using ANSI)
+        case WM_INPUT:   // Raw input messages
+        case WM_IME_CHAR: // Input Method Editor messages
+        {
+            if ((HWND)lParam == hwndOutputEdit) {
+                // If the message is for the output edit control, block it
+                DebugPrint("WindowProc: Blocking input message %u for output edit control.\n", uMsg);
+                return 0; // Indicate that we handled the message and it should not be processed further
+            }
+            // Otherwise, let the default window procedure handle it
+            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+        }
+
+        // Intercept mouse clicks that could lead to text modification
+        case WM_LBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+        {
+             if ((HWND)lParam == hwndOutputEdit) {
+                // If the message is for the output edit control, allow it.
+                // This is needed for selection to work.
+                DebugPrint("WindowProc: Allowing mouse down message %u for output edit control (for selection).\n", uMsg);
+                return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+            }
+             // Otherwise, let the default window procedure handle it
+            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+        }
+
+        // Allow mouse move for selection, but block if it's not part of a drag selection
+        case WM_MOUSEMOVE:
+        {
+             if ((HWND)lParam == hwndOutputEdit) {
+                 // Check if a mouse button is down (indicating a drag selection)
+                 if (wParam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)) {
+                     // If a button is down, it's likely a selection drag, so allow the message
+                     DebugPrint("WindowProc: Allowing mouse move message for output edit control (during selection).\n");
+                     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+                 } else {
+                     // If no button is down, it's just a mouse hover, which we can ignore
+                     // to prevent potential issues, although it's usually harmless.
+                     // Returning 0 here might prevent the caret from changing shape on hover,
+                     // which is acceptable for a read-only like behavior.
+                     DebugPrint("WindowProc: Blocking mouse move message for output edit control (not during selection).\n");
+                     return 0; // Block the message
+                 }
+            }
+             // Otherwise, let the default window procedure handle it
+            return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+        }
+
 
         case WM_CTLCOLORSTATIC:
         {
