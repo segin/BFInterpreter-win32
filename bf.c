@@ -6,7 +6,7 @@
 #include <string.h>   // For memset, strlen, strcpy, etc.
 #include <commdlg.h>  // For OpenFileName
 #include <stdarg.h>   // For va_list, va_start, va_end
-#include <dlgs.h>     // Include this for dialog styles like DS_RESIZE
+#include <dlgs.h>     // Include this for dialog styles like DS_RESIZE (though using WS_SIZEBOX/WS_THICKFRAME below)
 
 // Define Control IDs
 #define IDC_STATIC_CODE     101
@@ -784,7 +784,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             {
                                 char* fileContent = (char*)malloc(fileSize + 1);
                                 if (fileContent)
-                                0{
+                                {
                                     DWORD bytesRead;
                                     if (ReadFile(hFile, fileContent, fileSize, &bytesRead, NULL))
                                     {
@@ -830,7 +830,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     DebugPrint("WM_COMMAND: IDM_FILE_SETTINGS received. Attempting to show message box.\n");
 
-                    // Commented out code to create dialog from memory
                     /*
                     // --- Prepare data for the dialog template in memory ---
 
@@ -1055,7 +1054,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
 
                     // Free the allocated wide strings (moved inside the case)
-                    free(settings_dialog_title_wide);
+                    // free(settings_dialog_title_wide); // This variable was not allocated in this version
                     // These were allocated but not used in the blank dialog case, still good to free.
                     // free(btn_class_wide); // This variable is not used in the blank dialog case
                     // free(debug_interp_text_wide); // Not used
@@ -1330,7 +1329,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 0xFFFF, // signature (indicates DLGTEMPLATEEX)
                                 0,      // helpID
                                 0,      // exStyle
-                                WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION | DS_RESIZE | DS_CENTER, // style (Added DS_RESIZE for resizeable, DS_CENTER to center)
+                                WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION | WS_SIZEBOX | WS_THICKFRAME | DS_CENTER, // style (Using WS_SIZEBOX and WS_THICKFRAME for resizeable, DS_CENTER to center)
                                 0,      // cDlgItems (Number of controls - 0 for blank dialog)
                                 0,      // x (ignored due to DS_CENTER)
                                 0,      // y (ignored due to DS_CENTER)
