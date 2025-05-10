@@ -502,7 +502,8 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
                         g_bDebugInterpreter = FALSE;
                         g_bDebugOutput = FALSE;
                     }
-                    DebugPrint("SettingsDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bInterpreter, g_bDebugOutput);
+                    // Corrected typo here: g_bInterpreter -> g_bDebugInterpreter
+                    DebugPrint("SettingsDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
 
 
                     EndDialog(hDlg, LOWORD(wParam)); // Close the dialog
