@@ -652,7 +652,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             // Initialize checkboxes based on current global settings
             CheckDlgButton(hwnd, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_DEBUG_INTERPRETER, g_bDebugInterpreter ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hwnd, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
+CheckDlgButton(hwnd, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
             DebugPrint("SettingsModalDialogProc: Checkboxes initialized.\n");
 
             // Set initial enabled/disabled state of interpreter and output checkboxes
@@ -1655,7 +1655,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         }
                     } else {
                         DebugPrint("IDM_FILE_RUN: Interpreter already running.\n");
-                        // Optional: Display a message that interpreter is already running
+                        // Optionally, display a message that interpreter is already running
                         // AppendText(hwndOutputEdit, "--- Interpreter is already running ---\r\n");
                     }
                     break; // Break for IDM_FILE_RUN case
@@ -1887,25 +1887,87 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             LPCSTR szString = (LPCSTR)lParam; // Assuming lParam is a valid string pointer
 
             if (szString) {
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Appending to edit control with handle %p.\n", (void*)hEdit);
+                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Processing string for line ending conversion.\n");
 
-                // Get current text length
-                int current_len = GetWindowTextLengthA(hEdit);
+                // Allocate a buffer for the converted string.
+                // Max possible size is twice the original length (if every character is '\n') + 1 for null terminator.
+                int original_len = strlen(szString);
+                int converted_buffer_size = original_len * 2 + 1;
+                char* converted_string = (char*)malloc(converted_buffer_size);
 
-                // Set selection to the end to append
-                SendMessageA(hEdit, EM_SETSEL, (WPARAM)current_len, (LPARAM)current_len);
+                if (converted_string) {
+                    int converted_pos = 0;
+                    char last_char = '\0';
 
-                // Replace the empty selection at the end with the new string
-                SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)szString);
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Appended text.\n");
+                    // Iterate through the original string and perform conversion
+                    for (int i = 0; i < original_len; ++i) {
+                        char current_char = szString[i];
 
-                // Auto-scroll to the bottom
-                SendMessageA(hEdit, EM_SCROLLCARET, 0, 0);
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Scrolled to caret.\n");
+                        if (current_char == '\n') {
+                            // If it's a newline and the previous character wasn't a carriage return, add a carriage return
+                            if (last_char != '\r') {
+                                if (converted_pos < converted_buffer_size - 2) { // Ensure space for \r\n and null terminator
+                                    converted_string[converted_pos++] = '\r';
+                                } else {
+                                    // Buffer too small, break or handle error
+                                    DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Converted buffer too small.\n");
+                                    break; // Exit loop if buffer is full
+                                }
+                            }
+                            // Add the newline character
+                            if (converted_pos < converted_buffer_size - 1) { // Ensure space for \n and null terminator
+                                converted_string[converted_pos++] = '\n';
+                            } else {
+                                // Buffer too small, break or handle error
+                                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Converted buffer too small.\n");
+                                break; // Exit loop if buffer is full
+                            }
+                        } else {
+                            // Copy other characters directly
+                            if (converted_pos < converted_buffer_size - 1) { // Ensure space for char and null terminator
+                                converted_string[converted_pos++] = current_char;
+                            } else {
+                                // Buffer too small, break or handle error
+                                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Converted buffer too small.\n");
+                                break; // Exit loop if buffer is full
+                            }
+                        }
+                        last_char = current_char; // Update last character for the next iteration
+                    }
 
-                // Free the memory allocated for the string in the worker thread
+                    converted_string[converted_pos] = '\0'; // Null-terminate the converted string
+                    DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Conversion complete. Converted length: %d\n", converted_pos);
+
+
+                    // Get current text length in the edit control
+                    int current_edit_len = GetWindowTextLengthA(hEdit);
+
+                    // Set selection to the end to append
+                    SendMessageA(hEdit, EM_SETSEL, (WPARAM)current_edit_len, (LPARAM)current_edit_len);
+
+                    // Replace the empty selection at the end with the converted string
+                    SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)converted_string);
+                    DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Appended converted text.\n");
+
+                    // Auto-scroll to the bottom
+                    SendMessageA(hEdit, EM_SCROLLCARET, 0, 0);
+                    DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Scrolled to caret.\n");
+
+                    // Free the allocated memory for the converted string
+                    free(converted_string);
+                    DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Freed converted string memory.\n");
+
+                } else {
+                    DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Failed to allocate memory for converted string.\n");
+                    // Append an error message if memory allocation fails
+                     int current_edit_len = GetWindowTextLengthA(hEdit);
+                     SendMessageA(hEdit, EM_SETSEL, (WPARAM)current_edit_len, (LPARAM)current_edit_len);
+                     SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)"\r\nError: Failed to convert output line endings.\r\n");
+                }
+
+                // Free the original memory allocated for the string in the worker thread
                 free((void*)lParam);
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Freed string memory.\n");
+                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Freed original string memory.\n");
             }
             return 0;
          }
