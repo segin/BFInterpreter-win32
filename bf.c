@@ -8,6 +8,7 @@
 #include <stdarg.h>   // For va_list, va_start, va_end
 #include <dlgs.h>     // Include this for dialog styles like DS_RESIZE (though using WS_SIZEBOX/WS_THICKFRAME below)
 #include <commctrl.h> // Include for Common Control
+#include <algorithm> // For std::max
 
 // Define Control IDs
 #define IDC_STATIC_CODE     101
@@ -612,89 +613,107 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
         { // Added braces to limit the scope of variables
             DebugPrint("SettingsModalDialogProc: WM_CREATE received.\n");
 
-            // Calculate the required width for the longest checkbox text
-            int max_text_width = 0;
+            // Set dialog font first
+            SendMessage(hwnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+            DebugPrint("SettingsModalDialogProc: Applied DEFAULT_GUI_FONT to dialog.\n");
+
             HDC hdc = GetDC(hwnd);
-            HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
-            if (hFont == NULL) {
-                 // If no font is set, get the system font
-                 hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-            }
+            HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0); // Get the font actually used by the dialog
             HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
 
+            // Calculate font metrics for checkbox height
+            TEXTMETRIC tm;
+            GetTextMetrics(hdc, &tm);
+            int fontHeight = tm.tmHeight; // Base height
+            int checkHeight = fontHeight + 4; // Add padding for checkbox height
+
+            // Measure checkbox texts
+            const char* texts[] = {
+                STRING_DEBUG_INTERPRETER_ANSI,
+                STRING_DEBUG_OUTPUT_ANSI,
+                STRING_DEBUG_BASIC_ANSI
+            };
+
+            int maxTextWidth = 0;
             SIZE size;
-            GetTextExtentPoint32A(hdc, STRING_DEBUG_INTERPRETER_ANSI, strlen(STRING_DEBUG_INTERPRETER_ANSI), &size);
-            if (size.cx > max_text_width) max_text_width = size.cx;
-            GetTextExtentPoint32A(hdc, STRING_DEBUG_OUTPUT_ANSI, strlen(STRING_DEBUG_OUTPUT_ANSI), &size);
-            if (size.cx > max_text_width) max_text_width = size.cx;
-            GetTextExtentPoint32A(hdc, STRING_DEBUG_BASIC_ANSI, strlen(STRING_DEBUG_BASIC_ANSI), &size);
-            if (size.cx > max_text_width) max_text_width = size.cx;
+            for (int i = 0; i < 3; i++) {
+                GetTextExtentPoint32A(hdc, texts[i], strlen(texts[i]), &size);
+                if (size.cx > maxTextWidth) maxTextWidth = size.cx;
+            }
 
-            SelectObject(hdc, hOldFont);
-            ReleaseDC(hwnd, hdc);
-
+            // Calculate control dimensions
             // Add padding for the checkbox square, text spacing, and right margin within the control
+            int checkbox_control_width = maxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5;
             // Added a small buffer (+10) for safety against truncation
-            int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5 + 10; // Approx checkbox width + padding + buffer
+            checkbox_control_width += 10;
+
+
+            const int button_width = 75; // Standard button width
+            const int button_height = 25; // Standard button height
 
             // Define vertical spacing and margins
             const int margin = 15; // Margin around control groups
             const int checkbox_spacing = 5; // Vertical space between checkboxes
             const int button_spacing = 10; // Space between last checkbox and buttons
-            const int button_width = 75; // Standard button width
-            const int button_height = 25; // Standard button height
+
 
             // Calculate required dialog width: Max of checkbox control width and button width + margins
+            int required_content_width = std::max(checkbox_control_width, button_width);
             // Added a small buffer (+10) for safety
-            int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width); // Use ternary operator instead of max
             int dlgW = required_content_width + margin * 2 + 10;
 
             // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
+            // Using calculated checkHeight
+            int dlgH = margin + (3 * checkHeight) + (2 * checkbox_spacing) + button_spacing + button_height + margin;
             // Added a small buffer (+10) for safety
-            int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin + 10;
+            dlgH += 10;
 
+
+            // Position tracking
+            int yPos = margin;
 
             // Create checkboxes using WC_BUTTONA (Common Controls Button)
-            // Set the width of the checkboxes based on the calculated checkbox_control_width
+            // Set the width and height of the checkboxes based on the calculated values
             CreateWindowA(
                 WC_BUTTONA,               // Class name (Common Controls)
                 STRING_DEBUG_INTERPRETER_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // Styles
-                margin, margin, checkbox_control_width, 20,        // Position and size (x, y, width, height)
+                margin, yPos, checkbox_control_width, checkHeight,        // Position and size (x, y, width, height)
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_INTERPRETER, // Control ID
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
             DebugPrint("SettingsModalDialogProc: Interpreter debug checkbox created.\n");
+            yPos += checkHeight + checkbox_spacing;
 
             CreateWindowA(
                 WC_BUTTONA,               // Class name (Common Controls)
                 STRING_DEBUG_OUTPUT_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // Styles
-                margin, margin + 20 + checkbox_spacing, checkbox_control_width, 20,        // Position and size
+                margin, yPos, checkbox_control_width, checkHeight,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_OUTPUT, // Control ID
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
             DebugPrint("SettingsModalDialogProc: Output debug checkbox created.\n");
+            yPos += checkHeight + checkbox_spacing;
 
             CreateWindowA(
                 WC_BUTTONA,               // Class name (Common Controls)
                 STRING_DEBUG_BASIC_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // Styles
-                margin, margin + (20 + checkbox_spacing) * 2, checkbox_control_width, 20,        // Position and size
+                margin, yPos, checkbox_control_width, checkHeight,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_BASIC, // Control ID
                 hInst,                  // Instance handle
                 NULL                    // Additional application data
             );
             DebugPrint("SettingsModalDialogProc: Basic debug checkbox created.\n");
+            yPos += checkHeight + button_spacing; // Space before the button
 
             // Calculate button position to be centered below checkboxes
-            int button_y = margin + (20 + checkbox_spacing) * 3 + button_spacing;
-            // Center the single OK button within the required content width
             int ok_button_x = margin + (required_content_width - button_width) / 2;
 
 
@@ -703,7 +722,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 WC_BUTTONA,               // Class name (Common Controls)
                 STRING_OK_ANSI,         // Text
                 WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP, // Styles (BS_DEFPUSHBUTTON makes it the default button)
-                ok_button_x, button_y, button_width, button_height,        // Position and size
+                ok_button_x, yPos, button_width, button_height,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDOK,            // Control ID (predefined)
                 hInst,                  // Instance handle
@@ -723,6 +742,10 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             // Resize the dialog window to fit the calculated size
             SetWindowPos(hwnd, NULL, 0, 0, dlgW, dlgH, SWP_NOMOVE | SWP_NOZORDER);
             DebugPrint("SettingsModalDialogProc: Dialog resized to (%d, %d).\n", dlgW, dlgH);
+
+
+            SelectObject(hdc, hOldFont);
+            ReleaseDC(hwnd, hdc);
 
 
             break;
@@ -812,12 +835,10 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     RECT rcParent;
     GetWindowRect(hwndParent, &rcParent);
 
-    // Calculate required dialog width based on control sizes
-    int margin = 15; // Margin around control groups
-    int checkbox_spacing = 5; // Vertical space between checkboxes
-    int button_spacing = 10; // Space between last checkbox and buttons
-    const int button_width = 75; // Standard button width
-    const int button_height = 25; // Standard button height
+    // --- Calculate required dialog width and height before creating the window ---
+    // This ensures the window is created with the correct initial size for centering.
+    // Note: The WM_CREATE handler will also calculate and potentially adjust the size
+    // based on the font actually used by the dialog, which is more accurate.
 
     // Measure the width of the checkbox texts using the default GUI font
     int max_text_width = 0;
@@ -836,25 +857,31 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     SelectObject(hdc, hOldFont);
     ReleaseDC(NULL, hdc); // Release screen DC
 
-
     // Add padding for the checkbox square, text spacing, and right margin within the control
     // Added a small buffer (+10) for safety against truncation
     int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5 + 10; // Approx checkbox width + padding + buffer
 
+    // Define vertical spacing and margins
+    const int margin = 15; // Margin around control groups
+    const int checkbox_spacing = 5; // Vertical space between checkboxes
+    const int button_spacing = 10; // Space between last checkbox and buttons
+    const int button_width = 75; // Standard button width
+    const int button_height = 25; // Standard button height
 
     // Calculate required dialog width: Max of checkbox control width and button width + margins
     // Added a small buffer (+10) for safety
-    int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width); // Use ternary operator instead of max
+    int required_content_width = std::max(checkbox_control_width, button_width);
     int dlgW = required_content_width + margin * 2 + 10;
 
     // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
-    // Added a small buffer (+10) for safety
-    int dlgH = margin + (3 * 20) + (2 * checkbox_spacing) + button_spacing + button_height + margin + 10;
+    // Using a standard checkbox height (approx 20) for initial creation, WM_CREATE will refine this.
+    int estimated_checkHeight = 20; // Estimate for initial window creation
+    int dlgH = margin + (3 * estimated_checkHeight) + (2 * checkbox_spacing) + button_spacing + button_height + margin + 10;
 
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
     int y = rcParent.top + (rcParent.bottom - rcParent.top - dlgH) / 2;
-     DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d) and size (%d, %d).\n", x, y, dlgW, dlgH);
+     DebugPrint("ShowModalSettingsDialog: Calculated dialog position (%d, %d) and initial size (%d, %d).\n", x, y, dlgW, dlgH);
 
 
     // Create the modal dialog window
@@ -862,7 +889,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
         SETTINGS_DIALOG_CLASS_NAME_ANSI, // Window class (ANSI)
         STRING_SETTINGS_TITLE_ANSI, // Window title (ANSI)
         WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME, // Styles for a modal dialog
-        x, y, dlgW, dlgH, // Size and position
+        x, y, dlgW, dlgH, // Size and position (using calculated initial size)
         hwndParent, // Parent window
         NULL,       // Menu
         hInst,      // Instance handle
@@ -879,10 +906,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     }
     DebugPrint("ShowModalSettingsDialog: Settings dialog window created successfully.\n");
 
-    // Apply the default GUI font to the dialog itself.
-    // Controls created after this will inherit it.
-    SendMessageA(hDlg, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
-    DebugPrint("ShowModalSettingsDialog: Applied DEFAULT_GUI_FONT to dialog.\n");
+    // WM_CREATE handler will set the font and resize the window accurately.
 
 
     // Show and update the dialog
