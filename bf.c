@@ -490,7 +490,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             //     if (hCheckOutput) SendMessage(hCheckOutput, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
             //     if (hCheckBasic) SendMessage(hCheckBasic, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
             //     if (hBtnOK) SendMessage(hBtnOK, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-            //     if (hBtnCancel) SendMessage(hBtnCancel, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+            //     if (hBtnCancel) SendMessage(hDlg, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to dialog itself too? No, usually controls inherit.
             // }
 
             return (INT_PTR)TRUE; // Return TRUE to set the keyboard focus
@@ -980,8 +980,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             // Helper macro to add a control item
                             #define ADD_CONTROL_ITEM(id, class_wide, text_wide, x, y, cx, cy, style, exStyle) \
                             { \
+                                size_t current_offset_before_item = pCurrent - pGlobalTemplate; \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(DWORD) - 1) & ~(sizeof(DWORD) - 1)); /* DWORD align for item template struct */ \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u. Offset before item struct: %zu, Aligned offset: %zu.\n", id, current_offset_before_item, pCurrent - pGlobalTemplate); \
                                 MY_DLGITEMTEMPLATEEX_WIDE item_template = { \
                                     0, /* helpID */ \
                                     exStyle, \
@@ -994,26 +995,31 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE); \
                                 \
                                 /* Copy Class Name (string) */ \
+                                size_t current_offset_before_class = pCurrent - pGlobalTemplate; \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for class name */ \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u. Offset before class: %zu, Aligned offset: %zu.\n", id, current_offset_before_class, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemClass = (LPWSTR)pCurrent; \
                                 size_t item_class_len = wcslen(class_wide) + 1; \
-                                memcpy(pItemClass, class_wide, item_class_len * sizeof(WCHAR)); \
-                                pCurrent += item_class_len * sizeof(WCHAR); \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset after class: %zu\n", id, item_class_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
+                                size_t item_class_size_bytes = item_class_len * sizeof(WCHAR); \
+                                memcpy(pItemClass, class_wide, item_class_size_bytes); \
+                                pCurrent += item_class_size_bytes; \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset after class: %zu\n", id, item_class_size_bytes, pCurrent - pGlobalTemplate); \
                                 \
                                 /* Copy Title (string) */ \
+                                size_t current_offset_before_text = pCurrent - pGlobalTemplate; \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for title */ \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u. Offset before text: %zu, Aligned offset: %zu.\n", id, current_offset_before_text, pCurrent - pGlobalTemplate); \
                                 LPWSTR pItemText = (LPWSTR)pCurrent; \
                                 size_t item_text_len = wcslen(text_wide) + 1; \
-                                memcpy(pItemText, text_wide, item_text_len * sizeof(WCHAR)); \
-                                pCurrent += item_text_len * sizeof(WCHAR); \
-                                DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset after text: %zu\n", id, item_text_len * sizeof(WCHAR), pCurrent - pGlobalTemplate); \
+                                size_t item_text_size_bytes = item_text_len * sizeof(WCHAR); \
+                                memcpy(pItemText, text_wide, item_text_size_bytes); \
+                                pCurrent += item_text_size_bytes; \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset after text: %zu\n", id, item_text_size_bytes, pCurrent - pGlobalTemplate); \
                                 \
                                 /* Creation Data (always 0 size for standard controls) */ \
+                                size_t current_offset_before_creation = pCurrent - pGlobalTemplate; \
                                 pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(WORD) - 1) & ~(sizeof(WORD) - 1)); /* WORD align for creation data size */ \
-                                DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u at offset %zu.\n", id, pCurrent - pGlobalTemplate); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u. Offset before creation data size: %zu, Aligned offset: %zu.\n", id, current_offset_before_creation, pCurrent - pGlobalTemplate); \
                                 LPWORD pCreationDataSize = (LPWORD)pCurrent; \
                                 *pCreationDataSize = 0; /* Size of creation data */ \
                                 pCurrent += sizeof(WORD); \
@@ -1249,7 +1255,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 default:
                     // Let Windows handle any messages we don't process
-                    // DebugPrint("WM_COMMAND: Unhandled command.\n"); // Too noisy
+                    // DebugPrint("WindowProc: Unhandled message.\n"); // Too noisy
                     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
             }
             break; // End of WM_COMMAND (handled cases break internally)
