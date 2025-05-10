@@ -473,6 +473,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
         case WM_INITDIALOG:
             DebugPrint("SettingsDialogProc: WM_INITDIALOG received.\n");
             // Get handles to the dynamically created controls
+            // These will be NULL for a blank dialog, which is expected.
             hCheckInterpreter = GetDlgItem(hDlg, IDC_CHECK_DEBUG_INTERPRETER);
             hCheckOutput = GetDlgItem(hDlg, IDC_CHECK_DEBUG_OUTPUT);
             hCheckBasic = GetDlgItem(hDlg, IDC_CHECK_DEBUG_BASIC);
@@ -480,6 +481,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             hBtnCancel = GetDlgItem(hDlg, IDCANCEL);
 
             // Initialize checkboxes based on current global settings
+            // These checks will safely do nothing if the controls don't exist.
             if (hCheckInterpreter) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_INTERPRETER, g_bDebugInterpreter ? BST_CHECKED : BST_UNCHECKED);
             if (hCheckOutput) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
             if (hCheckBasic) CheckDlgButton(hDlg, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
@@ -493,15 +495,18 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             DebugPrint("SettingsDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
 
 
-            EndDialog(hDlg, LOWORD(wParam)); // Close the dialog
-            return (INT_PTR)TRUE;
+            // For a blank dialog, we don't have OK/Cancel buttons to wait for.
+            // The dialog will just appear and can be closed via the system menu or Alt+F4.
+            // We should NOT call EndDialog here, as the user needs to see the blank dialog.
+
+            return (INT_PTR)TRUE; // Return TRUE to set the keyboard focus
         case WM_COMMAND:
         { // Added braces to create a new scope
             DebugPrint("SettingsDialogProc: WM_COMMAND received. LOWORD(wParam): %u, HIWORD(wParam): %u, lParam: %p\n", LOWORD(wParam), HIWORD(wParam), (void*)lParam);
             switch (LOWORD(wParam)) {
                 case IDOK:
                     DebugPrint("SettingsDialogProc: IDOK received.\n");
-                    // Save settings from checkboxes
+                    // Save settings from checkboxes (will do nothing for blank dialog)
                     g_bDebugInterpreter = IsDlgButtonChecked(hDlg, IDC_CHECK_DEBUG_INTERPRETER) == BST_CHECKED;
                     g_bDebugOutput = IsDlgButtonChecked(hDlg, IDC_CHECK_DEBUG_OUTPUT) == BST_CHECKED;
                     g_bDebugBasic = IsDlgButtonChecked(hDlg, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
@@ -511,9 +516,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
                         g_bDebugInterpreter = FALSE;
                         g_bDebugOutput = FALSE;
                     }
-                    // Corrected typo here: g_bInterpreter -> g_bDebugInterpreter
                     DebugPrint("SettingsDialogProc: Debug settings saved. Basic: %d, Interpreter: %d, Output: %d\n", g_bDebugBasic, g_bDebugInterpreter, g_bDebugOutput);
-
 
                     EndDialog(hDlg, LOWORD(wParam)); // Close the dialog
                     return (INT_PTR)TRUE;
@@ -524,6 +527,10 @@ INT_PTR CALLBACK SettingsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             }
             break;
         } // Added braces to create a new scope
+         case WM_CLOSE:
+            DebugPrint("SettingsDialogProc: WM_CLOSE received.\n");
+            EndDialog(hDlg, IDCANCEL); // Treat closing via system menu as Cancel
+            return (INT_PTR)TRUE;
     }
     return (INT_PTR)FALSE; // Let the system handle other messages
 }
@@ -762,6 +769,92 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     settings_dialog_title_wide[title_len_wide] = L'\0'; // Null-terminate wide string
                     size_t title_string_size_wide = (title_len_wide + 1) * sizeof(WCHAR);
 
+                    // Control Class Names (Wide Character)
+                    // These are allocated but not used in the blank dialog case, will be freed.
+                    const char* btn_class_ansi = "BUTTON";
+                    int btn_class_len_wide = MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, NULL, 0); // -1 for null terminator
+                    WCHAR* btn_class_wide = (WCHAR*)malloc(btn_class_len_wide * sizeof(WCHAR));
+                    if (!btn_class_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide button class string.\n");
+                         free(settings_dialog_title_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, btn_class_ansi, -1, btn_class_wide, btn_class_len_wide);
+                    // size_t btn_class_size_wide = btn_class_len_wide * sizeof(WCHAR); // Not needed for blank dialog
+
+                    // Control Text (Wide Character)
+                    // These are allocated but not used in the blank dialog case, will be freed.
+                    const char* debug_interp_text_ansi = STRING_DEBUG_INTERPRETER_ANSI;
+                    int debug_interp_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_interp_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_interp_text_wide = (WCHAR*)malloc(debug_interp_text_len_wide * sizeof(WCHAR));
+                     if (!debug_interp_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug interp text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_interp_text_ansi, -1, debug_interp_text_wide, debug_interp_text_len_wide);
+                    // size_t debug_interp_text_size_wide = debug_interp_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* debug_output_text_ansi = STRING_DEBUG_OUTPUT_ANSI;
+                    int debug_output_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_output_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_output_text_wide = (WCHAR*)malloc(debug_output_text_len_wide * sizeof(WCHAR));
+                     if (!debug_output_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug output text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_output_text_ansi, -1, debug_output_text_wide, debug_output_text_len_wide);
+                    // size_t debug_output_text_size_wide = debug_output_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* debug_basic_text_ansi = STRING_DEBUG_BASIC_ANSI;
+                    int debug_basic_text_len_wide = MultiByteToWideChar(CP_ACP, 0, debug_basic_text_ansi, -1, NULL, 0);
+                    WCHAR* debug_basic_text_wide = (WCHAR*)malloc(debug_basic_text_len_wide * sizeof(WCHAR));
+                     if (!debug_basic_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide debug basic text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, debug_basic_text_ansi, -1, debug_basic_text_wide, debug_basic_text_len_wide);
+                    // size_t debug_basic_text_size_wide = debug_basic_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* ok_text_ansi = STRING_OK_ANSI;
+                    int ok_text_len_wide = MultiByteToWideChar(CP_ACP, 0, ok_text_ansi, -1, NULL, 0);
+                    WCHAR* ok_text_wide = (WCHAR*)malloc(ok_text_len_wide * sizeof(WCHAR));
+                     if (!ok_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide OK text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         free(debug_basic_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, ok_text_ansi, -1, ok_text_wide, ok_text_len_wide);
+                    // size_t ok_text_size_wide = ok_text_len_wide * sizeof(WCHAR); // Not needed
+
+                    const char* cancel_text_ansi = STRING_CANCEL_ANSI;
+                    int cancel_text_len_wide = MultiByteToWideChar(CP_ACP, 0, cancel_text_ansi, -1, NULL, 0);
+                    WCHAR* cancel_text_wide = (WCHAR*)malloc(cancel_text_len_wide * sizeof(WCHAR));
+                     if (!cancel_text_wide) {
+                         DebugPrint("IDM_FILE_SETTINGS: Failed to allocate memory for wide Cancel text.\n");
+                         free(settings_dialog_title_wide);
+                         free(btn_class_wide);
+                         free(debug_interp_text_wide);
+                         free(debug_output_text_wide);
+                         free(debug_basic_text_wide);
+                         free(ok_text_wide);
+                         break;
+                    }
+                    MultiByteToWideChar(CP_ACP, 0, cancel_text_ansi, -1, cancel_text_wide, cancel_text_len_wide);
+                    // size_t cancel_text_size_wide = cancel_text_len_wide * sizeof(WCHAR); // Not needed
+
+
                     // --- Calculate total required memory size for a blank dialog ---
 
                     // Size of the base DLGTEMPLATEEX_WIDE structure
@@ -850,6 +943,70 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 
                             // --- No control items added here for a blank dialog ---
+                            // Commented out the ADD_CONTROL_ITEM macro calls:
+                            /*
+                            // Helper macro to add a control item
+                            #define ADD_CONTROL_ITEM(id, class_wide, text_wide, x, y, cx, cy, style, exStyle) \
+                            { \
+                                size_t current_offset_before_item = pCurrent - pGlobalTemplate; \
+                                // Align to ULONG_PTR before the item template structure \
+                                pCurrent = (LPBYTE)(((ULONG_PTR)pCurrent + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1)); \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding control ID %u. Offset before item struct: %zu, Aligned offset: %zu (ULONG_PTR).\n", id, current_offset_before_item, pCurrent - pGlobalTemplate); \
+                                MY_DLGITEMTEMPLATEEX_WIDE item_template = { \
+                                    0, // helpID \
+                                    exStyle, \
+                                    style | WS_CHILD | WS_VISIBLE, \
+                                    x, y, cx, cy, \
+                                    (DWORD)id \
+                                }; \
+                                memcpy(pCurrent, &item_template, sizeof(MY_DLGITEMTEMPLATEEX_WIDE)); \
+                                pCurrent += sizeof(MY_DLGITEMTEMPLATEEX_WIDE); \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied item template struct for ID %u. Size: %zu bytes. Current offset after struct: %zu\n", id, sizeof(MY_DLGITEMTEMPLATEEX_WIDE), pCurrent - pGlobalTemplate); \
+                                \
+                                // Copy Class Name (string) with WORD alignment \
+                                size_t current_offset_before_class = pCurrent - pGlobalTemplate; \
+                                size_t padding_before_class = ((sizeof(WORD) - 1) - ((ULONG_PTR)pCurrent % sizeof(WORD)) + (sizeof(WORD) - 1)) % (sizeof(WORD)); \
+                                pCurrent += padding_before_class; \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding class for ID %u. Offset before class: %zu, Padding added: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_class, padding_before_class, pCurrent - pGlobalTemplate); \
+                                LPWSTR pItemClass = (LPWSTR)pCurrent; \
+                                size_t item_class_len = wcslen(class_wide) + 1; \
+                                size_t item_class_size_bytes = item_class_len * sizeof(WCHAR); \
+                                memcpy(pItemClass, class_wide, item_class_size_bytes); \
+                                pCurrent += item_class_size_bytes; \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied class for ID %u. Size: %zu bytes. Current offset after class: %zu\n", id, item_class_size_bytes, pCurrent - pGlobalTemplate); \
+                                \
+                                // Copy Title (string) with WORD alignment \
+                                size_t current_offset_before_text = pCurrent - pGlobalTemplate; \
+                                size_t padding_before_text = ((sizeof(WORD) - 1) - ((ULONG_PTR)pCurrent % sizeof(WORD)) + (sizeof(WORD) - 1)) % (sizeof(WORD)); \
+                                pCurrent += padding_before_text; \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding text for ID %u. Offset before text: %zu, Padding added: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_text, padding_before_text, pCurrent - pGlobalTemplate); \
+                                LPWSTR pItemText = (LPWSTR)pCurrent; \
+                                size_t item_text_len = wcslen(text_wide) + 1; \
+                                size_t item_text_size_bytes = item_text_len * sizeof(WCHAR); \
+                                memcpy(pItemText, text_wide, item_text_size_bytes); \
+                                pCurrent += item_text_size_bytes; \
+                                DebugPrint("IDM_FILE_SETTINGS: Copied text for ID %u. Size: %zu bytes. Current offset after text: %zu\n", id, item_text_size_bytes, pCurrent - pGlobalTemplate); \
+                                \
+                                // Creation Data (always 0 size for standard controls) with WORD alignment \
+                                size_t current_offset_before_creation = pCurrent - pGlobalTemplate; \
+                                size_t padding_before_creation = ((sizeof(WORD) - 1) - ((ULONG_PTR)pCurrent % sizeof(WORD)) + (sizeof(WORD) - 1)) % (sizeof(WORD)); \
+                                pCurrent += padding_before_creation; \
+                                DebugPrint("IDM_FILE_SETTINGS: Adding creation data size for ID %u. Offset before creation data size: %zu, Padding added: %zu, Aligned offset: %zu (WORD).\n", id, current_offset_before_creation, padding_before_creation, pCurrent - pGlobalTemplate); \
+                                LPWORD pCreationDataSize = (LPWORD)pCurrent; \
+                                *pCreationDataSize = 0; // Size of creation data \
+                                pCurrent += sizeof(WORD); \
+                                DebugPrint("IDM_FILE_SETTINGS: Finished adding control ID %u. Current offset after creation data size: %zu\n", id, pCurrent - pGlobalTemplate); \
+                            }
+                            */
+
+                            // Add Checkboxes (Commented out)
+                            // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_INTERPRETER, btn_class_wide, debug_interp_text_wide, 10, 10, 300, 20, BS_AUTOCHECKBOX, 0);
+                            // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_OUTPUT, btn_class_wide, debug_output_text_wide, 10, 35, 300, 20, BS_AUTOCHECKBOX, 0);
+                            // ADD_CONTROL_ITEM(IDC_CHECK_DEBUG_BASIC, btn_class_wide, debug_basic_text_wide, 10, 60, 300, 20, BS_AUTOCHECKBOX, 0);
+
+                            // Add Buttons (Commented out)
+                            // ADD_CONTROL_ITEM(IDOK, btn_class_wide, ok_text_wide, 80, 100, 75, 25, BS_DEFPUSHBUTTON, 0);
+                            // ADD_CONTROL_ITEM(IDCANCEL, btn_class_wide, cancel_text_wide, 160, 100, 75, 25, BS_PUSHBUTTON, 0);
 
 
                             GlobalUnlock(hGlobalTemplate);
@@ -876,7 +1033,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         DebugPrint("IDM_FILE_SETTINGS: GlobalAlloc failed for dialog template. GetLastError: %lu\n", GetLastError());
                     }
 
-                    // Free the allocated wide strings
+                    // Free the allocated wide strings (moved inside the case)
                     free(settings_dialog_title_wide);
                     free(btn_class_wide); // This was allocated but not used in the blank dialog case, still good to free.
                     free(debug_interp_text_wide); // Not used, free
