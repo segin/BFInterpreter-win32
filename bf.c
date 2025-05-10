@@ -608,6 +608,7 @@ void ShowModalBlankDialog(HWND hwndParent) {
 LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_CREATE:
+        { // Added braces to limit the scope of variables
             DebugPrint("SettingsModalDialogProc: WM_CREATE received.\n");
 
             // Calculate the required width for the longest checkbox text
@@ -703,6 +704,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             DebugPrint("SettingsModalDialogProc: Checkboxes initialized.\n");
 
             break;
+        } // Added closing brace
 
         case WM_COMMAND:
         { // Added braces for scope
