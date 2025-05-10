@@ -8,7 +8,7 @@
 #include <stdarg.h>   // For va_list, va_start, va_end
 #include <dlgs.h>     // Include this for dialog styles like DS_RESIZE (though using WS_SIZEBOX/WS_THICKFRAME below)
 #include <commctrl.h> // Include for Common Control
-#include <algorithm> // For std::max
+// Removed #include <algorithm> as this is a C99 project
 
 // Define Control IDs
 #define IDC_STATIC_CODE     101
@@ -663,7 +663,8 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
 
             // Calculate required dialog width: Max of checkbox control width and button width + margins
-            int required_content_width = std::max(checkbox_control_width, button_width);
+            // Replaced std::max with ternary operator for C99 compatibility
+            int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width);
             // Added a small buffer (+15) for safety (increased buffer)
             int dlgW = required_content_width + margin * 2 + 15;
 
@@ -898,7 +899,8 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     const int button_height = 25; // Standard button height
 
     // Calculate required dialog width: Max of checkbox control width and button width + margins
-    int required_content_width = std::max(checkbox_control_width, button_width);
+    // Replaced std::max with ternary operator for C99 compatibility
+    int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width);
     // Added a small buffer (+15) for safety (increased buffer)
     int dlgW = required_content_width + margin * 2 + 15;
 
