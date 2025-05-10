@@ -608,6 +608,11 @@ void ShowModalBlankDialog(HWND hwndParent) {
 
 // --- Settings Modal Dialog Procedure ---
 LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    // Store handles to the checkboxes for easy access
+    static HWND hCheckBasic = NULL;
+    static HWND hCheckInterpreter = NULL;
+    static HWND hCheckOutput = NULL;
+
     switch (uMsg) {
         case WM_CREATE:
         { // Added braces to limit the scope of variables
@@ -625,13 +630,13 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             TEXTMETRIC tm;
             GetTextMetrics(hdc, &tm);
             int fontHeight = tm.tmHeight; // Base height
-            int checkHeight = fontHeight + 4; // Add padding for checkbox height
+            int checkHeight = fontHeight + 6; // Add padding for checkbox height (increased slightly)
 
             // Measure checkbox texts
             const char* texts[] = {
+                STRING_DEBUG_BASIC_ANSI, // Basic first
                 STRING_DEBUG_INTERPRETER_ANSI,
-                STRING_DEBUG_OUTPUT_ANSI,
-                STRING_DEBUG_BASIC_ANSI
+                STRING_DEBUG_OUTPUT_ANSI
             };
 
             int maxTextWidth = 0;
@@ -643,42 +648,58 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
             // Calculate control dimensions
             // Add padding for the checkbox square, text spacing, and right margin within the control
-            int checkbox_control_width = maxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5;
-            // Added a small buffer (+10) for safety against truncation
-            checkbox_control_width += 10;
+            int checkbox_control_width = maxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8; // Increased padding slightly
+            // Added a small buffer (+15) for safety against truncation (increased buffer)
+            checkbox_control_width += 15;
 
 
             const int button_width = 75; // Standard button width
             const int button_height = 25; // Standard button height
 
             // Define vertical spacing and margins
-            const int margin = 15; // Margin around control groups
-            const int checkbox_spacing = 5; // Vertical space between checkboxes
-            const int button_spacing = 10; // Space between last checkbox and buttons
+            const int margin = 20; // Margin around control groups (increased)
+            const int checkbox_spacing = 8; // Vertical space between checkboxes (increased)
+            const int button_spacing = 15; // Space between last checkbox and buttons (increased)
 
 
             // Calculate required dialog width: Max of checkbox control width and button width + margins
             int required_content_width = std::max(checkbox_control_width, button_width);
-            // Added a small buffer (+10) for safety
-            int dlgW = required_content_width + margin * 2 + 10;
+            // Added a small buffer (+15) for safety (increased buffer)
+            int dlgW = required_content_width + margin * 2 + 15;
 
             // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
             // Using calculated checkHeight
             int dlgH = margin + (3 * checkHeight) + (2 * checkbox_spacing) + button_spacing + button_height + margin;
-            // Added a small buffer (+10) for safety
-            dlgH += 10;
+            // Added a small buffer (+15) for safety (increased buffer)
+            dlgH += 15;
 
 
             // Position tracking
             int yPos = margin;
 
-            // Create checkboxes using WC_BUTTONA (Common Controls Button)
+            // Create checkboxes using WC_BUTTONA (Common Controls Button) in the new order
             // Set the width and height of the checkboxes based on the calculated values
-            CreateWindowA(
+
+            // Basic Debug Checkbox (First)
+            hCheckBasic = CreateWindowA(
+                WC_BUTTONA,               // Class name (Common Controls)
+                STRING_DEBUG_BASIC_ANSI, // Text
+                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // Styles
+                margin, yPos, checkbox_control_width, checkHeight,        // Position and size (x, y, width, height)
+                hwnd,                   // Parent window handle
+                (HMENU)IDC_CHECK_DEBUG_BASIC, // Control ID
+                hInst,                  // Instance handle
+                NULL                    // Additional application data
+            );
+            DebugPrint("SettingsModalDialogProc: Basic debug checkbox created.\n");
+            yPos += checkHeight + checkbox_spacing;
+
+            // Interpreter Debug Checkbox (Second)
+            hCheckInterpreter = CreateWindowA(
                 WC_BUTTONA,               // Class name (Common Controls)
                 STRING_DEBUG_INTERPRETER_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // Styles
-                margin, yPos, checkbox_control_width, checkHeight,        // Position and size (x, y, width, height)
+                margin, yPos, checkbox_control_width, checkHeight,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_INTERPRETER, // Control ID
                 hInst,                  // Instance handle
@@ -687,7 +708,8 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             DebugPrint("SettingsModalDialogProc: Interpreter debug checkbox created.\n");
             yPos += checkHeight + checkbox_spacing;
 
-            CreateWindowA(
+            // Output Debug Checkbox (Third)
+            hCheckOutput = CreateWindowA(
                 WC_BUTTONA,               // Class name (Common Controls)
                 STRING_DEBUG_OUTPUT_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // Styles
@@ -698,19 +720,6 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 NULL                    // Additional application data
             );
             DebugPrint("SettingsModalDialogProc: Output debug checkbox created.\n");
-            yPos += checkHeight + checkbox_spacing;
-
-            CreateWindowA(
-                WC_BUTTONA,               // Class name (Common Controls)
-                STRING_DEBUG_BASIC_ANSI, // Text
-                WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP, // Styles
-                margin, yPos, checkbox_control_width, checkHeight,        // Position and size
-                hwnd,                   // Parent window handle
-                (HMENU)IDC_CHECK_DEBUG_BASIC, // Control ID
-                hInst,                  // Instance handle
-                NULL                    // Additional application data
-            );
-            DebugPrint("SettingsModalDialogProc: Basic debug checkbox created.\n");
             yPos += checkHeight + button_spacing; // Space before the button
 
             // Calculate button position to be centered below checkboxes
@@ -734,10 +743,17 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
 
             // Initialize checkboxes based on current global settings
+            CheckDlgButton(hwnd, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_DEBUG_INTERPRETER, g_bDebugInterpreter ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_DEBUG_OUTPUT, g_bDebugOutput ? BST_CHECKED : BST_UNCHECKED);
-            CheckDlgButton(hwnd, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
             DebugPrint("SettingsModalDialogProc: Checkboxes initialized.\n");
+
+            // Set initial enabled/disabled state of interpreter and output checkboxes
+            BOOL bEnableOthers = (g_bDebugBasic == TRUE); // Use boolean logic
+            EnableWindow(hCheckInterpreter, bEnableOthers);
+            EnableWindow(hCheckOutput, bEnableOthers);
+            DebugPrint("SettingsModalDialogProc: Initial enabled state set for interpreter/output checkboxes.\n");
+
 
             // Resize the dialog window to fit the calculated size
             SetWindowPos(hwnd, NULL, 0, 0, dlgW, dlgH, SWP_NOMOVE | SWP_NOZORDER);
@@ -759,9 +775,9 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 case IDOK:
                     DebugPrint("SettingsModalDialogProc: IDOK received.\n");
                     // Save settings from checkboxes
+                    g_bDebugBasic = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
                     g_bDebugInterpreter = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_INTERPRETER) == BST_CHECKED;
                     g_bDebugOutput = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_OUTPUT) == BST_CHECKED;
-                    g_bDebugBasic = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
 
                     // Apply the rule: if basic is off, all are off
                     if (!g_bDebugBasic) {
@@ -775,10 +791,18 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 // Removed the case for IDCANCEL
                 case IDC_CHECK_DEBUG_BASIC:
                     DebugPrint("SettingsModalDialogProc: Basic debug checkbox clicked.\n");
-                    // If basic is unchecked, uncheck the others
-                    if (IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_UNCHECKED) {
+                    // Get the current state of the basic debug checkbox
+                    BOOL bBasicChecked = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
+
+                    // Enable or disable the other checkboxes based on the basic checkbox state
+                    EnableWindow(GetDlgItem(hwnd, IDC_CHECK_DEBUG_INTERPRETER), bBasicChecked);
+                    EnableWindow(GetDlgItem(hwnd, IDC_CHECK_DEBUG_OUTPUT), bBasicChecked);
+
+                    // If basic is unchecked, also uncheck the others visually and logically
+                    if (!bBasicChecked) {
                         CheckDlgButton(hwnd, IDC_CHECK_DEBUG_INTERPRETER, BST_UNCHECKED);
                         CheckDlgButton(hwnd, IDC_CHECK_DEBUG_OUTPUT, BST_UNCHECKED);
+                        // The global flags will be updated in IDOK, but this ensures consistency
                     }
                     break;
                 // No specific handlers needed for other checkboxes unless they have unique logic
@@ -793,6 +817,10 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
         case WM_DESTROY:
             DebugPrint("SettingsModalDialogProc: WM_DESTROY received.\n");
+            // Clear static handles
+            hCheckBasic = NULL;
+            hCheckInterpreter = NULL;
+            hCheckOutput = NULL;
             // No specific cleanup needed for controls
             break;
 
@@ -852,31 +880,32 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     GetTextExtentPoint32A(hdc, STRING_DEBUG_OUTPUT_ANSI, strlen(STRING_DEBUG_OUTPUT_ANSI), &size);
     if (size.cx > max_text_width) max_text_width = size.cx;
     GetTextExtentPoint32A(hdc, STRING_DEBUG_BASIC_ANSI, strlen(STRING_DEBUG_BASIC_ANSI), &size);
-    if (size.cx > max_text_width) max_text_width = size.cx;
+    if (size.cx > max_text_width) maxTextWidth = size.cx;
 
     SelectObject(hdc, hOldFont);
     ReleaseDC(NULL, hdc); // Release screen DC
 
     // Add padding for the checkbox square, text spacing, and right margin within the control
-    // Added a small buffer (+10) for safety against truncation
-    int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 5 + 10; // Approx checkbox width + padding + buffer
+    // Added a small buffer (+15) for safety against truncation (increased buffer)
+    int checkbox_control_width = max_text_width + GetSystemMetrics(SM_CXMENUCHECK) + GetSystemMetrics(SM_CXEDGE) * 2 + 8 + 15; // Approx checkbox width + padding + buffer (increased padding/buffer)
+
 
     // Define vertical spacing and margins
-    const int margin = 15; // Margin around control groups
-    const int checkbox_spacing = 5; // Vertical space between checkboxes
-    const int button_spacing = 10; // Space between last checkbox and buttons
+    const int margin = 20; // Margin around control groups (increased)
+    const int checkbox_spacing = 8; // Vertical space between checkboxes (increased)
+    const int button_spacing = 15; // Space between last checkbox and buttons (increased)
     const int button_width = 75; // Standard button width
     const int button_height = 25; // Standard button height
 
     // Calculate required dialog width: Max of checkbox control width and button width + margins
-    // Added a small buffer (+10) for safety
     int required_content_width = std::max(checkbox_control_width, button_width);
-    int dlgW = required_content_width + margin * 2 + 10;
+    // Added a small buffer (+15) for safety (increased buffer)
+    int dlgW = required_content_width + margin * 2 + 15;
 
     // Calculate required dialog height: Top margin + (Number of checkboxes * Checkbox Height) + (Number of spaces between checkboxes * Checkbox Spacing) + Button Spacing + Button Height + Bottom margin
     // Using a standard checkbox height (approx 20) for initial creation, WM_CREATE will refine this.
-    int estimated_checkHeight = 20; // Estimate for initial window creation
-    int dlgH = margin + (3 * estimated_checkHeight) + (2 * checkbox_spacing) + button_spacing + button_height + margin + 10;
+    int estimated_checkHeight = 20 + 6; // Estimate for initial window creation (matching WM_CREATE padding)
+    int dlgH = margin + (3 * estimated_checkHeight) + (2 * checkbox_spacing) + button_spacing + button_height + margin + 15; // Increased buffer
 
 
     int x = rcParent.left + (rcParent.right - rcParent.left - dlgW) / 2;
