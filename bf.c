@@ -90,6 +90,7 @@
 #define STRING_NEW_WINDOW_BUTTON_ANSI "New Window" // Text for the new button
 #define STRING_BLANK_WINDOW_TITLE_ANSI "Blank Window" // Title for the new window/dialog
 #define NEW_WINDOW_CLASS_NAME_ANSI "BlankWindowClass" // This constant is no longer used for modal dialog
+#define STRING_DUMMY_CHECKBOX_ANSI "Dummy Checkbox" // Text for the dummy checkbox
 
 
 #define TAPE_SIZE           65536 // Equivalent to 0x10000 in Java Tape.java
