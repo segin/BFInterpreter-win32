@@ -802,7 +802,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
     if (!hDlg) {
         DebugPrint("ShowModalSettingsDialog: Failed to create settings dialog window. GetLastError: %lu\n", GetLastError());
-        MessageBoxA(hwndParent, "Failed to create settings dialog!", "Error", MB_OK | MB_ICONEXCLAMATION | MB_OK);
+        MessageBoxA(hwndParent, "Failed to create settings dialog!", "Error", MB_ICONEXCLAMATION | MB_OK);
         EnableWindow(hwndParent, TRUE); // Re-enable parent on failure
         return;
     }
@@ -1811,14 +1811,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case WM_CLOSE:
             DebugPrint("WM_CLOSE received.\n");
-            // Use MessageBoxA for ANSI
-            if (MessageBoxA(hwnd, STRING_REALLY_QUIT_ANSI, STRING_CONFIRM_EXIT_ANSI, MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
-                DebugPrint("WM_CLOSE: User confirmed exit.\n");
-                DestroyWindow(hwnd);
-            } else {
-                 DebugPrint("WM_CLOSE: User cancelled exit.\n");
-            }
-            return 0; // Indicate we handled the message (prevents DefWindowProc from closing)
+            // Removed the MessageBoxA confirmation and directly destroy the window
+            DestroyWindow(hwnd);
+            return 0; // Indicate we handled the message
 
         case WM_DESTROY:
             DebugPrint("WM_DESTROY received.\n");
