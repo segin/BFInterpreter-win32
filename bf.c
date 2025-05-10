@@ -1169,8 +1169,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared. Forcing repaint.\n");
 
                      // Attempt to force a clean repaint
-                     InvalidateRect(hwndOutputDisplay, NULL, TRUE); // Invalidate and erase background
+                     RECT rcClient;
+                     GetClientRect(hwndOutputDisplay, &rcClient);
+                     InvalidateRect(hwndOutputDisplay, &rcClient, TRUE); // Invalidate and erase background
+                     // Explicitly send WM_ERASEBKGND
+                     SendMessageA(hwndOutputDisplay, WM_ERASEBKGND, (WPARAM)GetDC(hwndOutputDisplay), 0);
+                     ReleaseDC(hwndOutputDisplay, GetDC(hwndOutputDisplay)); // Release the DC
+
                      UpdateWindow(hwndOutputDisplay); // Force immediate paint
+                     // Also send WM_PAINT directly as an experiment
+                     SendMessageA(hwndOutputDisplay, WM_PAINT, 0, 0);
+
                      DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
 
                      break;
@@ -1257,6 +1266,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 // Forcing a repaint might be necessary.
                 InvalidateRect(hStatic, NULL, TRUE);
                 UpdateWindow(hStatic);
+                // Also send WM_PAINT directly as an experiment
+                SendMessageA(hStatic, WM_PAINT, 0, 0);
+
                 DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Repaint forced for static control.\n");
 
 
