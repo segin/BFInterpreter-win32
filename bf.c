@@ -121,7 +121,7 @@ HACCEL hAccelTable; // Handle to the accelerator table
 
 // Global debug settings flags (volatile for thread safety)
 volatile BOOL g_bDebugInterpreter = FALSE; // Default to FALSE
-volatile BOOL g_bDebugOutput = TRUE;      // Default to TRUE
+volatile BOOL g_bDebugOutput = FALSE;      // Default to FALSE
 volatile BOOL g_bDebugBasic = TRUE;       // Default to TRUE
 
 // Forward declaration of the main window procedure
@@ -633,14 +633,14 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             ReleaseDC(hwnd, hdc);
 
             // Add some padding for the checkbox square and margin
-            int checkbox_width = max_text_width + 20; // Add ~20 pixels for the checkbox square and spacing
+            int checkbox_control_width = max_text_width + 20; // Add ~20 pixels for the checkbox square and spacing
 
             // Create checkboxes with calculated width
             CreateWindowA(
                 "BUTTON",               // Class name
                 STRING_DEBUG_INTERPRETER_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 20, checkbox_width, 20,        // Position and size (x, y, width, height)
+                20, 20, checkbox_control_width, 20,        // Position and size (x, y, width, height)
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_INTERPRETER, // Control ID
                 hInst,                  // Instance handle
@@ -652,7 +652,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_OUTPUT_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 45, checkbox_width, 20,        // Position and size
+                20, 45, checkbox_control_width, 20,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_OUTPUT, // Control ID
                 hInst,                  // Instance handle
@@ -664,7 +664,7 @@ LRESULT CALLBACK SettingsModalDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
                 "BUTTON",               // Class name
                 STRING_DEBUG_BASIC_ANSI, // Text
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, // Styles
-                20, 70, checkbox_width, 20,        // Position and size
+                20, 70, checkbox_control_width, 20,        // Position and size
                 hwnd,                   // Parent window handle
                 (HMENU)IDC_CHECK_DEBUG_BASIC, // Control ID
                 hInst,                  // Instance handle
@@ -1644,8 +1644,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     while (GetMessageA(&msg, NULL, 0, 0) > 0) // Use GetMessageA
     {
         // Check if the message is for a dialog box. If so, let the dialog handle it.
-        // This is crucial for modal dialogs created with DialogBoxIndirect,
-        // but also helps with the custom modal loop in ShowModalBlankDialog and ShowModalSettingsDialog.
+        // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
         if (!IsDialogMessage(GetActiveWindow(), &msg)) {
              // Translate accelerator keys before dispatching the message
             if (!TranslateAcceleratorA(msg.hwnd, hAccelTable, &msg)) {
