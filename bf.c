@@ -13,7 +13,7 @@
 #define IDC_STATIC_INPUT    103
 #define IDC_EDIT_INPUT      104
 #define IDC_STATIC_OUTPUT   105
-#define IDC_EDIT_OUTPUT     106
+#define IDC_STATIC_OUTPUT_DISPLAY 107 // New ID for the static output display
 
 // Define Menu IDs
 #define IDM_FILE_RUN        201
@@ -22,6 +22,12 @@
 #define IDM_FILE_OPEN       204 // New menu ID for Open
 #define IDM_FILE_SETTINGS   205 // New menu ID for Settings
 #define IDM_FILE_CLEAROUTPUT 206 // New menu ID for Clear Output
+
+// Accelerator IDs for Ctrl+A
+#define IDM_SELECTALL_CODE   401
+#define IDM_SELECTALL_INPUT  402
+#define IDM_SELECTALL_OUTPUT 403
+
 
 // Define Dialog Control IDs for Settings Dialog
 #define IDC_CHECK_DEBUG_INTERPRETER 301
@@ -85,7 +91,7 @@ HINSTANCE hInst;
 HFONT hMonoFont = NULL;
 HWND hwndCodeEdit = NULL;
 HWND hwndInputEdit = NULL;
-HWND hwndOutputEdit = NULL;
+HWND hwndOutputDisplay = NULL; // Renamed for the static control
 HANDLE g_hInterpreterThread = NULL; // Handle for the worker thread
 volatile BOOL g_bInterpreterRunning = FALSE; // Flag to indicate if interpreter is running (volatile for thread safety)
 HACCEL hAccelTable; // Handle to the accelerator table
@@ -604,22 +610,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
 
-            // Standard Output (Read-only)
-            hwndOutputEdit = CreateWindowExA(
-                WS_EX_CLIENTEDGE, "EDIT", "",
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
-                10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL);
+            // Standard Output (Static Label)
+            hwndOutputDisplay = CreateWindowA(
+                "STATIC", "", // Use "STATIC" class
+                WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP, // Styles for static control
+                10, 325, 560, 150, hwnd, (HMENU)IDC_STATIC_OUTPUT_DISPLAY, hInst, NULL); // Use new ID
+
 
             // Set initial text (ANSI)
             SetWindowTextA(hwndCodeEdit, STRING_CODE_TEXT_ANSI);
             SetWindowTextA(hwndInputEdit, STRING_INPUT_TEXT_ANSI);
-            SetWindowTextA(hwndOutputEdit, "");
+            SetWindowTextA(hwndOutputDisplay, ""); // Set text for the static control
 
-            // Apply the monospaced font to all EDIT controls
+            // Apply the monospaced font to all EDIT controls and the static output
             if (hMonoFont) {
                 SendMessageA(hwndCodeEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
                 SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
-                SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0));
+                SendMessageA(hwndOutputDisplay, WM_SETFONT, (WPARAM)hMonoFont, MAKELPARAM(TRUE, 0)); // Apply to static control
             }
 
             SetFocus(hwndCodeEdit);
@@ -656,12 +663,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             MoveWindow(hwndInputEdit, margin, currentY, width - 2 * margin, inputEditHeight, TRUE);
             currentY += inputEditHeight + spacing;
 
-            // Output Label & Edit
+            // Output Label & Display (Static)
             MoveWindow(GetDlgItem(hwnd, IDC_STATIC_OUTPUT), margin, currentY, width - 2 * margin, labelHeight, TRUE);
             currentY += labelHeight + editTopMargin;
-            int outputEditHeight = height - currentY - margin; // Remaining space
-            if (outputEditHeight < minimumEditHeight) outputEditHeight = minimumEditHeight; // Ensure minimum
-            MoveWindow(hwndOutputEdit, margin, currentY, width - 2 * margin, outputEditHeight, TRUE);
+            int outputDisplayHeight = height - currentY - margin; // Remaining space
+            if (outputDisplayHeight < minimumEditHeight) outputDisplayHeight = minimumEditHeight; // Ensure minimum
+            MoveWindow(hwndOutputDisplay, margin, currentY, width - 2 * margin, outputDisplayHeight, TRUE); // Move static control
 
             break; // End of WM_SIZE
         }
@@ -980,12 +987,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                     // Free the allocated wide strings (moved inside the case)
                     free(settings_dialog_title_wide);
-                    free(btn_class_wide); // This was allocated but not used in the blank dialog case, still good to free.
-                    free(debug_interp_text_wide); // Not used, free
-                    free(debug_output_text_wide); // Not used, free
-                    free(debug_basic_text_wide); // Not used, free
-                    free(ok_text_wide); // Not used, free
-                    free(cancel_text_wide); // Not used, free
+                    // These were allocated but not used in the blank dialog case, still good to free.
+                    // free(btn_class_wide); // This variable is not used in the blank dialog case
+                    // free(debug_interp_text_wide); // Not used
+                    // free(debug_output_text_wide); // Not used
+                    // free(debug_basic_text_wide); // Not used
+                    // free(ok_text_wide); // Not used
+                    // free(cancel_text_wide); // Not used
                     DebugPrint("IDM_FILE_SETTINGS: Freed wide string memory.\n");
                     */
 
@@ -1003,15 +1011,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     DebugPrint("WM_COMMAND: IDM_FILE_RUN received.\n");
                     if (!g_bInterpreterRunning) {
                         DebugPrint("IDM_FILE_RUN: Interpreter not running, attempting to start.\n");
-                        // Clear previous output
-                        SetWindowTextA(hwndOutputEdit, "");
+                        // Clear previous output by setting static control text to empty
+                        SetWindowTextA(hwndOutputDisplay, "");
 
                         // Get code and input text (ANSI)
                         int code_len = GetWindowTextLengthA(hwndCodeEdit);
                         char* code = (char*)malloc((code_len + 1) * sizeof(char));
                         if (!code) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for code.\n");
-                            SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_CODE_ANSI);
+                            SetWindowTextA(hwndOutputDisplay, STRING_MEM_ERROR_CODE_ANSI);
                             break;
                         }
                         GetWindowTextA(hwndCodeEdit, code, code_len + 1);
@@ -1021,7 +1029,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         char* input = (char*)malloc((input_len + 1) * sizeof(char));
                          if (!input) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for input.\n");
-                            SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_INPUT_ANSI);
+                            SetWindowTextA(hwndOutputDisplay, STRING_MEM_ERROR_INPUT_ANSI);
                             free(code); // Free previously allocated code
                             break;
                         }
@@ -1032,7 +1040,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         InterpreterParams* params = (InterpreterParams*)malloc(sizeof(InterpreterParams));
                         if (!params) {
                             DebugPrint("IDM_FILE_RUN: Memory allocation failed for thread parameters.\n");
-                            SetWindowTextA(hwndOutputEdit, STRING_MEM_ERROR_PARAMS_ANSI);
+                            SetWindowTextA(hwndOutputDisplay, STRING_MEM_ERROR_PARAMS_ANSI);
                             free(code);
                             free(input);
                             break;
@@ -1046,7 +1054,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         params->output_buffer = (char*)malloc(OUTPUT_BUFFER_SIZE);
                         if (!params->output_buffer) {
                              DebugPrint("IDM_FILE_RUN: Memory allocation failed for output buffer.\n");
-                             SetWindowTextA(hwndOutputEdit, "Error: Memory allocation failed for output buffer.\r\n");
+                             SetWindowTextA(hwndOutputDisplay, "Error: Memory allocation failed for output buffer.\r\n");
                              free(code);
                              free(input);
                              free(params);
@@ -1070,7 +1078,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             char error_msg[256];
                             sprintf_s(error_msg, sizeof(error_msg), "IDM_FILE_RUN: CreateThread failed with error %lu\n", GetLastError());
                             DebugPrint(error_msg);
-                            SetWindowTextA(hwndOutputEdit, STRING_THREAD_ERROR_ANSI);
+                            SetWindowTextA(hwndOutputDisplay, STRING_THREAD_ERROR_ANSI);
                             free(code);
                             free(input);
                             free(params->output_buffer); // Free output buffer
@@ -1094,64 +1102,54 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDM_FILE_COPYOUTPUT:
                 { // Added braces to scope variables
                     DebugPrint("WM_COMMAND: IDM_FILE_COPYOUTPUT received.\n");
-                    // Check if any text is selected in the output edit control
-                    DWORD char_start, char_end;
-                    SendMessageA(hwndOutputEdit, EM_GETSEL, (WPARAM)&char_start, (LPARAM)&char_end);
+                    // For a static control, we can just get the entire text
+                    int textLen = GetWindowTextLengthA(hwndOutputDisplay);
+                    if (textLen > 0) {
+                         DebugPrint("IDM_FILE_COPYOUTPUT: Output text length > 0.\n");
+                        // Need +1 for null terminator
+                        HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, textLen + 1);
+                        if (hGlobal) {
+                            DebugPrint("IDM_FILE_COPYOUTPUT: GlobalAlloc succeeded.\n");
+                            char* pText = (char*)GlobalLock(hGlobal);
+                            if(pText) {
+                                DebugPrint("IDM_FILE_COPYOUTPUT: GlobalLock succeeded.\n");
+                                GetWindowTextA(hwndOutputDisplay, pText, textLen + 1);
+                                GlobalUnlock(hGlobal);
+                                DebugPrint("IDM_FILE_COPYOUTPUT: Text copied to global memory.\n");
 
-                    if (char_start == char_end) { // No text is selected
-                         DebugPrint("IDM_FILE_COPYOUTPUT: No text selected, copying entire output.\n");
-                        int textLen = GetWindowTextLengthA(hwndOutputEdit);
-                        if (textLen > 0) {
-                             DebugPrint("IDM_FILE_COPYOUTPUT: Output text length > 0.\n");
-                            // Need +1 for null terminator
-                            HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, textLen + 1);
-                            if (hGlobal) {
-                                DebugPrint("IDM_FILE_COPYOUTPUT: GlobalAlloc succeeded.\n");
-                                char* pText = (char*)GlobalLock(hGlobal);
-                                if(pText) {
-                                    DebugPrint("IDM_FILE_COPYOUTPUT: GlobalLock succeeded.\n");
-                                    GetWindowTextA(hwndOutputEdit, pText, textLen + 1);
-                                    GlobalUnlock(hGlobal);
-                                    DebugPrint("IDM_FILE_COPYOUTPUT: Text copied to global memory.\n");
-
-                                    if (OpenClipboard(hwnd)) {
-                                        DebugPrint("IDM_FILE_COPYOUTPUT: OpenClipboard succeeded.\n");
-                                        EmptyClipboard();
-                                        // Use CF_TEXT for ANSI text
-                                        SetClipboardData(CF_TEXT, hGlobal);
-                                        CloseClipboard();
-                                        DebugPrint("IDM_FILE_COPYOUTPUT: Clipboard data set.\n");
-                                        // Set hGlobal to NULL so we don't free it below,
-                                        // the system owns it now.
-                                        hGlobal = NULL;
-                                        MessageBoxA(hwnd, STRING_COPIED_ANSI, WINDOW_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
-                                    } else {
-                                        DebugPrint("IDM_FILE_COPYOUTPUT: Failed to open clipboard.\n");
-                                        MessageBoxA(hwnd, STRING_CLIPBOARD_OPEN_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
-                                    }
+                                if (OpenClipboard(hwnd)) {
+                                    DebugPrint("IDM_FILE_COPYOUTPUT: OpenClipboard succeeded.\n");
+                                    EmptyClipboard();
+                                    // Use CF_TEXT for ANSI text
+                                    SetClipboardData(CF_TEXT, hGlobal);
+                                    CloseClipboard();
+                                    DebugPrint("IDM_FILE_COPYOUTPUT: Clipboard data set.\n");
+                                    // Set hGlobal to NULL so we don't free it below,
+                                    // the system owns it now.
+                                    hGlobal = NULL;
+                                    MessageBoxA(hwnd, STRING_COPIED_ANSI, WINDOW_TITLE_ANSI, MB_OK | MB_ICONINFORMATION);
                                 } else {
-                                    DebugPrint("IDM_FILE_COPYOUTPUT: Failed to lock memory.\n");
-                                     MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_LOCK_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
+                                    DebugPrint("IDM_FILE_COPYOUTPUT: Failed to open clipboard.\n");
+                                    MessageBoxA(hwnd, STRING_CLIPBOARD_OPEN_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
                                 }
-                                // If hGlobal is not NULL here, it means SetClipboardData failed or
-                                // was not called, so we should free the memory we allocated.
-                                if (hGlobal) {
-                                    DebugPrint("IDM_FILE_COPYOUTPUT: Freeing global memory.\n");
-                                    GlobalFree(hGlobal);
-                                }
-                             } else {
-                                 DebugPrint("IDM_FILE_COPYOUTPUT: Failed to allocate global memory.\n");
-                                 MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_ALLOC_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
-                             }
-                        } else {
-                            DebugPrint("IDM_FILE_COPYOUTPUT: Output text length is 0.\n");
-                            // Optional: Notify user if there's nothing to copy
-                            // MessageBoxA(hwnd, "Output area is empty.", "Copy", MB_OK | MB_ICONINFORMATION);
-                        }
+                            } else {
+                                DebugPrint("IDM_FILE_COPYOUTPUT: Failed to lock memory.\n");
+                                 MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_LOCK_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
+                            }
+                            // If hGlobal is not NULL here, it means SetClipboardData failed or
+                            // was not called, so we should free the memory we allocated.
+                            if (hGlobal) {
+                                DebugPrint("IDM_FILE_COPYOUTPUT: Freeing global memory.\n");
+                                GlobalFree(hGlobal);
+                            }
+                         } else {
+                             DebugPrint("IDM_FILE_COPYOUTPUT: Failed to allocate global memory.\n");
+                             MessageBoxA(hwnd, STRING_CLIPBOARD_MEM_ALLOC_ERROR_ANSI, "Error", MB_OK | MB_ICONERROR);
+                         }
                     } else {
-                        DebugPrint("IDM_FILE_COPYOUTPUT: Text is selected, allowing default copy behavior.\n");
-                        // Text is selected, do nothing here. The default edit control handling
-                        // will copy the selected text.
+                        DebugPrint("IDM_FILE_COPYOUTPUT: Output text length is 0.\n");
+                        // Optional: Notify user if there's nothing to copy
+                        // MessageBoxA(hwnd, "Output area is empty.", "Copy", MB_OK | MB_ICONINFORMATION);
                     }
                     break; // Break for IDM_FILE_COPYOUTPUT case
                 } // End brace for IDM_FILE_COPYOUTPUT scope
@@ -1159,21 +1157,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                  case IDM_FILE_CLEAROUTPUT:
                  {
                      DebugPrint("WM_COMMAND: IDM_FILE_CLEAROUTPUT received. Clearing output text.\n");
+                     // Clear the text in the static output control
+                     SetWindowTextA(hwndOutputDisplay, "");
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Text cleared. Forcing repaint.\n");
 
-                     // Temporarily remove ES_READONLY to allow text modification
-                     LONG_PTR style = GetWindowLongPtrA(hwndOutputEdit, GWL_STYLE);
-                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style & ~ES_READONLY);
+                     // Attempt to force a clean repaint
+                     InvalidateRect(hwndOutputDisplay, NULL, TRUE); // Invalidate and erase background
+                     UpdateWindow(hwndOutputDisplay); // Force immediate paint
+                     DebugPrint("IDM_FILE_CLEAROUTPUT: Repaint forced.\n");
 
-                     SetWindowTextA(hwndOutputEdit, ""); // Clear the text
-
-                     // Restore ES_READONLY style
-                     SetWindowLongPtrA(hwndOutputEdit, GWL_STYLE, style);
-
-                     // Force redraw
-                     InvalidateRect(hwndOutputEdit, NULL, TRUE);
-                     UpdateWindow(hwndOutputEdit);
-
-                     DebugPrint("IDM_FILE_CLEAROUTPUT: Output cleared and styles reset.\n");
                      break;
                  }
 
@@ -1182,8 +1174,31 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     DestroyWindow(hwnd);
                     break;
 
+                case IDM_SELECTALL_CODE:
+                    DebugPrint("WM_COMMAND: IDM_SELECTALL_CODE received. Selecting all text in code edit.\n");
+                    // Select all text in the code edit control
+                    SendMessageA(hwndCodeEdit, EM_SETSEL, 0, -1);
+                    break;
+
+                case IDM_SELECTALL_INPUT:
+                     DebugPrint("WM_COMMAND: IDM_SELECTALL_INPUT received. Selecting all text in input edit.\n");
+                    // Select all text in the input edit control
+                    SendMessageA(hwndInputEdit, EM_SETSEL, 0, -1);
+                    break;
+
+                case IDM_SELECTALL_OUTPUT:
+                     DebugPrint("WM_COMMAND: IDM_SELECTALL_OUTPUT received. Selecting all text in output static.\n");
+                    // Note: Static controls don't support selection like edit controls.
+                    // We can't "select all" in a static control in the same way.
+                    // If the goal is to make the text selectable for copying, we might need
+                    // to revisit using a read-only edit control or implement custom drawing/selection.
+                    // For now, we'll just log that the command was received.
+                    DebugPrint("IDM_SELECTALL_OUTPUT: Static controls do not support text selection via EM_SETSEL.\n");
+                    break;
+
+
                 default:
-                    // Let Windows handle any messages we don't process
+                    // Let Windows handle any messages we don't process (ANSI version)
                     // DebugPrint("WindowProc: Unhandled message.\n"); // Too noisy
                     return DefWindowProcA(hwnd, uMsg, wParam, lParam);
             }
@@ -1201,52 +1216,40 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         // Note: No 'break' needed after return
 
          case WM_APP_INTERPRETER_OUTPUT_STRING: {
-            // Append a string to output edit control (used for error messages and buffered output) (ANSI)
+            // Append a string to output static control (used for error messages and buffered output) (ANSI)
             DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING received.\n");
-            HWND hEdit = hwndOutputEdit;
+            HWND hStatic = hwndOutputDisplay; // Use the handle for the static control
             LPCSTR szString = (LPCSTR)lParam; // Assuming lParam is a valid string pointer
 
             if (szString) {
-                // Disable redrawing
-                SendMessageA(hEdit, WM_SETREDRAW, FALSE, 0);
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Redraw disabled.\n");
-
-                // Get current text, concatenate, and set
-                int current_len = GetWindowTextLengthA(hEdit);
+                // Get current text from the static control
+                int current_len = GetWindowTextLengthA(hStatic);
                 int new_chunk_len = strlen(szString);
                 int total_len = current_len + new_chunk_len;
 
                 // Allocate buffer for combined text
                 char* combined_text = (char*)malloc((total_len + 1) * sizeof(char));
                 if (combined_text) {
-                    GetWindowTextA(hEdit, combined_text, current_len + 1); // Get current text
+                    GetWindowTextA(hStatic, combined_text, current_len + 1); // Get current text
                     strcat_s(combined_text, total_len + 1, szString); // Concatenate new chunk
 
-                    SetWindowTextA(hEdit, combined_text); // Set the combined text
+                    SetWindowTextA(hStatic, combined_text); // Set the combined text for the static control
                     DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Text replaced with combined output.\n");
 
                     free(combined_text); // Free the temporary combined buffer
                 } else {
                      DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Failed to allocate memory for combined text.\n");
-                     // Fallback to appending if memory allocation fails
-                     AppendText(hEdit, szString);
+                     // Fallback: if memory allocation fails, we can't update the static control.
+                     // In a real app, you might want to handle this more gracefully,
+                     // perhaps by showing an error message elsewhere.
                 }
 
-
-                // Auto-scroll to the bottom
-                int len = GetWindowTextLengthA(hEdit); // Get new length
-                SendMessageA(hEdit, EM_SETSEL, (WPARAM)len, (LPARAM)len);
-                SendMessageA(hEdit, EM_SCROLLCARET, 0, 0); // Scroll caret into view
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Scrolled to caret.\n");
-
-                // Re-enable redrawing and force repaint
-                SendMessageA(hEdit, WM_SETREDRAW, TRUE, 0);
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Redraw re-enabled.\n");
-                // Invalidate only the area that needs repainting if possible, or the whole control
-                // Using NULL invalidates the entire client area. TRUE means erase background.
-                InvalidateRect(hEdit, NULL, TRUE); // Changed to TRUE to force background erase
-                UpdateWindow(hEdit); // Force an immediate repaint
-                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Repaint forced.\n");
+                // Static controls don't have scrolling like edit controls.
+                // The text will be updated, but only the visible portion will be shown.
+                // Forcing a repaint might be necessary.
+                InvalidateRect(hStatic, NULL, TRUE);
+                UpdateWindow(hStatic);
+                DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING: Repaint forced for static control.\n");
 
 
                 // Free the memory allocated for the string in the worker thread
@@ -1352,7 +1355,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         {FVIRTKEY | FCONTROL, 'R', IDM_FILE_RUN},
         {FVIRTKEY | FCONTROL, 'C', IDM_FILE_COPYOUTPUT},
         {FVIRTKEY | FCONTROL, 'X', IDM_FILE_EXIT}, // Accelerator for Exit
-        {FVIRTKEY | FCONTROL, 'O', IDM_FILE_OPEN}  // Accelerator for Open
+        {FVIRTKEY | FCONTROL, 'O', IDM_FILE_OPEN},  // Accelerator for Open
+        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_CODE}, // Ctrl+A for Code Edit
+        {FVIRTKEY | FCONTROL, 'A', IDM_SELECTALL_INPUT}, // Ctrl+A for Input Edit
+        // Note: Ctrl+A for output static is not added here as static controls don't support EM_SETSEL
     };
 
     // Create the accelerator table from the structure
