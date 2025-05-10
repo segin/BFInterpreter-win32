@@ -585,7 +585,7 @@ void ShowModalBlankDialog(HWND hwndParent) {
     MSG msg;
     DebugPrint("ShowModalBlankDialog: Entering modal message loop.\n");
     while (IsWindow(hDlg) && GetMessageA(&msg, NULL, 0, 0)) {
-        // Check if the message is for this dialog box.
+        // Check if the message is for a dialog box. If so, let the dialog handle it.
         // IsDialogMessage handles keyboard input for dialog controls (like Tab, Enter, Esc).
         if (!IsDialogMessage(hDlg, &msg)) {
             TranslateMessage(&msg);
@@ -815,9 +815,6 @@ void ShowModalSettingsDialog(HWND hwndParent) {
     int button_spacing = 10; // Space between last checkbox and buttons
     const int button_width = 75; // Standard button width
     const int button_height = 25; // Standard button height
-    // Only one button now, so button group width is just button width
-    int button_group_width = button_width;
-
 
     // Measure the width of the checkbox texts using the default GUI font
     int max_text_width = 0;
@@ -842,7 +839,7 @@ void ShowModalSettingsDialog(HWND hwndParent) {
 
 
     // Calculate required dialog width: Max of checkbox control width and button width + margins
-    int required_content_width = (checkbox_control_width > button_group_width ? checkbox_control_width : button_group_width); // Use ternary operator instead of max
+    int required_content_width = (checkbox_control_width > button_width ? checkbox_control_width : button_width); // Use ternary operator instead of max
     int dlgW = required_content_width + margin * 2;
 
     // Calculate required dialog height: Top margin + 3 checkboxes height + 2 checkbox spacings + button spacing + button height + Bottom margin
@@ -1659,7 +1656,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (hwnd == NULL)
     {
         DebugPrint("WinMain: Main window creation failed.\n");
-        MessageBoxA(NULL, STRING_WINDOW_CREATION_ERROR_ANSI, "Error", MB_ICONEXCLAMATION | MB_OK);
+        MessageBoxA(NULL, STRING_WINDOW_REG_ERROR_ANSI, "Error", MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
     DebugPrint("WinMain: Main window created successfully.\n");
