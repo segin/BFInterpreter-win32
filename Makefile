@@ -1,6 +1,6 @@
 PROGNAME = bfinterpreter
-CC = gcc
-RC = windres
+CC = x86_64-w64-mingw32-gcc
+RC = x86_64-w64-mingw32-windres
 LD = $(CC)
 
 CFLAGS = -Wall -Wextra -g -std=c11
