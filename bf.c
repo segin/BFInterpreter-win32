@@ -1,5 +1,5 @@
 #include "bf.h"
-// #include <strsafe.h> // Moved to bf.h
+#include <strsafe.h> // For StringCchPrintf
 
 // Global variables
 HINSTANCE hInst;
@@ -293,8 +293,9 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
             TEXTMETRIC tm;
             GetTextMetrics(hdc, &tm);
-            int checkboxHeight = tm.tmHeight + 8; 
-            int buttonHeight = tm.tmHeight + 12; 
+            // More generous padding for controls
+            int checkboxHeight = tm.tmHeight + tm.tmExternalLeading + 8; 
+            int buttonHeight = tm.tmHeight + tm.tmExternalLeading + 14; 
             SIZE size;
 
             int maxCheckboxTextWidth = 0;
@@ -310,30 +311,37 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             GetTextExtentPoint32A(hdc, strBuffer, (int)strlen(strBuffer), &size);
             if (size.cx > maxCheckboxTextWidth) maxCheckboxTextWidth = size.cx;
 
-            int checkboxControlWidth = maxCheckboxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + 20; 
+            int checkboxControlWidth = maxCheckboxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + 25; // Checkbox visual + text padding
 
             GetWindowTextA(hOkButton, strBuffer, MAX_STRING_LENGTH);
             GetTextExtentPoint32A(hdc, strBuffer, (int)strlen(strBuffer), &size);
-            int okButtonWidth = size.cx + 40; 
+            int okButtonWidth = size.cx + 50; // Generous button padding
 
-            int margin = 15; 
-            int spacing = 8;  
-            int currentY = margin;
+            // Define layout constants
+            const int DLG_MARGIN = 15;              // Margin around the dialog content
+            const int CHECKBOX_V_SPACING = 10;      // Vertical space between checkboxes
+            const int CONTROLS_BUTTON_GAP = 20;   // Space between last control and button(s)
+            const int BUTTON_BOTTOM_MARGIN = 15;    // Margin below the button(s)
 
-            SetWindowPos(hCheckBasic, NULL, margin, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
-            currentY += checkboxHeight + spacing;
-            SetWindowPos(hCheckInterpreter, NULL, margin, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
-            currentY += checkboxHeight + spacing;
-            SetWindowPos(hCheckOutput, NULL, margin, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
-            currentY += checkboxHeight + margin + spacing; 
+            int currentY = DLG_MARGIN;
 
-            int buttonStartX = (checkboxControlWidth + 2 * margin - okButtonWidth) / 2;
-            if (buttonStartX < margin) buttonStartX = margin;
+            SetWindowPos(hCheckBasic, NULL, DLG_MARGIN, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
+            currentY += checkboxHeight + CHECKBOX_V_SPACING;
+            SetWindowPos(hCheckInterpreter, NULL, DLG_MARGIN, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
+            currentY += checkboxHeight + CHECKBOX_V_SPACING;
+            SetWindowPos(hCheckOutput, NULL, DLG_MARGIN, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
+            
+            currentY += checkboxHeight; // Add height of last checkbox
+            currentY += CONTROLS_BUTTON_GAP; // Add gap before button
+
+            int buttonStartX = (checkboxControlWidth + 2 * DLG_MARGIN - okButtonWidth) / 2;
+            if (buttonStartX < DLG_MARGIN) buttonStartX = DLG_MARGIN;
 
             SetWindowPos(hOkButton, NULL, buttonStartX, currentY, okButtonWidth, buttonHeight, SWP_NOZORDER);
-            currentY += buttonHeight + margin;
+            currentY += buttonHeight; // Add button height
+            currentY += BUTTON_BOTTOM_MARGIN; // Add final bottom margin
 
-            int dialogWidth = checkboxControlWidth + 2 * margin;
+            int dialogWidth = checkboxControlWidth + 2 * DLG_MARGIN;
             int dialogHeight = currentY;
 
             RECT rcOwner, rcDlg;
@@ -344,7 +352,6 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             int newY = rcOwner.top + (rcOwner.bottom - rcOwner.top - dialogHeight) / 2;
 
             SetWindowPos(hwnd, HWND_TOP, newX, newY, dialogWidth, dialogHeight, SWP_SHOWWINDOW);
-
 
             if (hOldFont) {
                 SelectObject(hdc, hOldFont);
@@ -422,43 +429,49 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
             }
 
             RECT textRect = {0, 0, 0, 0};
-            int minDialogWidth = 220; 
-            int minTextWidthForCalc = minDialogWidth - 30; 
-
-            textRect.right = minTextWidthForCalc; 
+            // Use a wider initial calculation width for DrawText to get a more stable textWidth
+            int calcTextRectWidth = 300; // A reasonably wide value for initial calculation
+            textRect.right = calcTextRectWidth; 
             DrawTextA(hdc, aboutTextBuffer, -1, &textRect, DT_CALCRECT | DT_WORDBREAK);
             
             int textHeight = textRect.bottom - textRect.top;
-            int textWidth = textRect.right - textRect.left;
+            int textWidth = textRect.right - textRect.left; // Actual width of the text block
 
             TEXTMETRIC tm;
             GetTextMetrics(hdc, &tm);
-            int buttonHeight = tm.tmHeight + 12; 
+            int buttonHeight = tm.tmHeight + tm.tmExternalLeading + 14; // Generous button height
             
             SIZE okButtonSize;
             GetTextExtentPoint32A(hdc, okButtonBuffer, (int)strlen(okButtonBuffer), &okButtonSize);
-            int buttonWidth = okButtonSize.cx + 40; 
+            int buttonWidth = okButtonSize.cx + 50; // Generous button width padding
 
-            int margin = 15; 
-            int spacing = 12; 
+            // Define layout constants
+            const int DLG_MARGIN = 20;              // Margin around the dialog content
+            const int TEXT_BUTTON_GAP = 15;       // Space between text and button
+            const int BUTTON_BOTTOM_MARGIN = 20;    // Margin below the button
 
+            // Determine dialog width
             int contentWidth = (textWidth > buttonWidth) ? textWidth : buttonWidth;
-            int dialogWidth = contentWidth + 2 * margin;
+            int dialogWidth = contentWidth + 2 * DLG_MARGIN;
+            int minDialogWidth = 250; // Ensure dialog isn't too narrow
             if (dialogWidth < minDialogWidth) dialogWidth = minDialogWidth;
             
-            if (dialogWidth > minTextWidthForCalc + 2 * margin) {
-                 textRect.right = dialogWidth - 2 * margin; 
-                 DrawTextA(hdc, aboutTextBuffer, -1, &textRect, DT_CALCRECT | DT_WORDBREAK);
-                 textHeight = textRect.bottom - textRect.top;
-            }
+            // Recalculate text height if dialog width changed for word wrapping
+            // This ensures the text control has the final dialog width to wrap correctly
+            RECT finalTextRect = {0,0, dialogWidth - 2 * DLG_MARGIN, 0};
+            DrawTextA(hdc, aboutTextBuffer, -1, &finalTextRect, DT_CALCRECT | DT_WORDBREAK);
+            textHeight = finalTextRect.bottom - finalTextRect.top;
 
-            int currentY = margin;
-            SetWindowPos(hStaticText, NULL, margin, currentY, dialogWidth - 2 * margin, textHeight, SWP_NOZORDER);
-            currentY += textHeight + spacing;
+
+            int currentY = DLG_MARGIN;
+            SetWindowPos(hStaticText, NULL, DLG_MARGIN, currentY, dialogWidth - 2 * DLG_MARGIN, textHeight, SWP_NOZORDER);
+            currentY += textHeight; 
+            currentY += TEXT_BUTTON_GAP;
 
             int buttonX = (dialogWidth - buttonWidth) / 2;
             SetWindowPos(hOkButton, NULL, buttonX, currentY, buttonWidth, buttonHeight, SWP_NOZORDER);
-            currentY += buttonHeight + margin;
+            currentY += buttonHeight;
+            currentY += BUTTON_BOTTOM_MARGIN;
 
             int dialogHeight = currentY;
 
@@ -470,7 +483,6 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
             int newY = rcOwner.top + (rcOwner.bottom - rcOwner.top - dialogHeight) / 2;
 
             SetWindowPos(hwnd, HWND_TOP, newX, newY, dialogWidth, dialogHeight, SWP_SHOWWINDOW);
-
 
             if (hOldFont) {
                 SelectObject(hdc, hOldFont);
@@ -595,9 +607,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
             if (hMonoFont) SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
 
-            // Create Output Edit Control - REMOVED ES_READONLY
             hwndOutputEdit = CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, "",
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | WS_TABSTOP, // Added WS_TABSTOP
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | WS_TABSTOP, 
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL);
             if (hMonoFont) SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
 
