@@ -12,6 +12,7 @@
 #include <dlgs.h>     // Include this for dialog styles
 #include <commctrl.h> // Include for Common Control
 #include <winreg.h>   // Include for Registry functions
+#include <strsafe.h>  // For StringCchPrintf, StringCchCopyA etc.
 
 // Resource IDs - These will correspond to IDs in bf.rc
 // Menu IDs
@@ -30,8 +31,6 @@
 #define IDM_HELP_ABOUT      1012
 
 // Control IDs for Main Window (defined in bf.rc if using DIALOG for main window, otherwise manually created)
-// These are used if you create them with CreateWindowEx. If using a dialog resource for the main window,
-// these IDs would be defined in the resource script. For now, assuming manual creation.
 #define IDC_STATIC_CODE     2001
 #define IDC_EDIT_CODE       2002
 #define IDC_STATIC_INPUT    2003
@@ -168,8 +167,8 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 void DebugPrint(const char* format, ...);
 void DebugPrintInterpreter(const char* format, ...);
 void DebugPrintOutput(const char* format, ...);
-void AppendTextToEditControl(HWND hwndEdit, const char* newText); // Renamed from AppendText for clarity
-char* LoadStringFromResource(UINT uID, char* buffer, int bufferSize); // Helper to load strings
+void AppendTextToEditControl(HWND hwndEdit, const char* newText); 
+char* LoadStringFromResource(UINT uID, char* buffer, int bufferSize); 
 
 // Tape Functions
 void Tape_init(Tape* tape);
@@ -185,9 +184,9 @@ char* optimize_code(const char* code);
 DWORD WINAPI InterpretThreadProc(LPVOID lpParam);
 void SendBufferedOutput(InterpreterParams* params);
 
-// UI Functions
-void ShowModalSettingsDialog(HWND hwndParent); // Kept for consistency if direct creation is preferred for some reason
-void ShowModalAboutDialog(HWND hwndParent); // Kept for consistency
+// UI Functions (DialogBox is used directly, these are not strictly needed for modal dialogs from resources)
+// void ShowModalSettingsDialog(HWND hwndParent); 
+// void ShowModalAboutDialog(HWND hwndParent); 
 
 // Registry Functions
 void SaveDebugSettingsToRegistry(void);

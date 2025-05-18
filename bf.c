@@ -1,5 +1,5 @@
 #include "bf.h"
-#include <strsafe.h> // For StringCchPrintf
+// #include <strsafe.h> // Moved to bf.h
 
 // Global variables
 HINSTANCE hInst;
@@ -270,13 +270,11 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             HWND hCheckInterpreter = GetDlgItem(hwnd, IDC_CHECK_DEBUG_INTERPRETER);
             HWND hCheckOutput = GetDlgItem(hwnd, IDC_CHECK_DEBUG_OUTPUT);
             HWND hOkButton = GetDlgItem(hwnd, IDOK);
-            // HWND hCancelButton = GetDlgItem(hwnd, IDCANCEL); // Removed Cancel Button
 
             SetWindowTextA(hCheckBasic, LoadStringFromResource(IDS_DEBUG_BASIC_CHK, strBuffer, MAX_STRING_LENGTH));
             SetWindowTextA(hCheckInterpreter, LoadStringFromResource(IDS_DEBUG_INTERPRETER_CHK, strBuffer, MAX_STRING_LENGTH));
             SetWindowTextA(hCheckOutput, LoadStringFromResource(IDS_DEBUG_OUTPUT_CHK, strBuffer, MAX_STRING_LENGTH));
             SetWindowTextA(hOkButton, LoadStringFromResource(IDS_OK, strBuffer, MAX_STRING_LENGTH));
-            // SetWindowTextA(hCancelButton, LoadStringFromResource(IDS_CANCEL, strBuffer, MAX_STRING_LENGTH)); // Removed
             SetWindowTextA(hwnd, LoadStringFromResource(IDS_SETTINGS_TITLE, strBuffer, MAX_STRING_LENGTH));
 
             CheckDlgButton(hwnd, IDC_CHECK_DEBUG_BASIC, g_bDebugBasic ? BST_CHECKED : BST_UNCHECKED);
@@ -295,8 +293,8 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
             TEXTMETRIC tm;
             GetTextMetrics(hdc, &tm);
-            int checkboxHeight = tm.tmHeight + 8; // Increased padding
-            int buttonHeight = tm.tmHeight + 12; // Increased padding
+            int checkboxHeight = tm.tmHeight + 8; 
+            int buttonHeight = tm.tmHeight + 12; 
             SIZE size;
 
             int maxCheckboxTextWidth = 0;
@@ -312,14 +310,14 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             GetTextExtentPoint32A(hdc, strBuffer, (int)strlen(strBuffer), &size);
             if (size.cx > maxCheckboxTextWidth) maxCheckboxTextWidth = size.cx;
 
-            int checkboxControlWidth = maxCheckboxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + 20; // Increased padding
+            int checkboxControlWidth = maxCheckboxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + 20; 
 
             GetWindowTextA(hOkButton, strBuffer, MAX_STRING_LENGTH);
             GetTextExtentPoint32A(hdc, strBuffer, (int)strlen(strBuffer), &size);
-            int okButtonWidth = size.cx + 40; // Increased padding for button
+            int okButtonWidth = size.cx + 40; 
 
-            int margin = 15; // Increased margin
-            int spacing = 8;  // Increased spacing
+            int margin = 15; 
+            int spacing = 8;  
             int currentY = margin;
 
             SetWindowPos(hCheckBasic, NULL, margin, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
@@ -327,7 +325,7 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             SetWindowPos(hCheckInterpreter, NULL, margin, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
             currentY += checkboxHeight + spacing;
             SetWindowPos(hCheckOutput, NULL, margin, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
-            currentY += checkboxHeight + margin + spacing; // More space before button
+            currentY += checkboxHeight + margin + spacing; 
 
             int buttonStartX = (checkboxControlWidth + 2 * margin - okButtonWidth) / 2;
             if (buttonStartX < margin) buttonStartX = margin;
@@ -340,9 +338,8 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
             RECT rcOwner, rcDlg;
             GetWindowRect(GetParent(hwnd), &rcOwner);
-            GetWindowRect(hwnd, &rcDlg); // Get its current screen coordinates
+            GetWindowRect(hwnd, &rcDlg); 
             
-            // Calculate new top-left for centering
             int newX = rcOwner.left + (rcOwner.right - rcOwner.left - dialogWidth) / 2;
             int newY = rcOwner.top + (rcOwner.bottom - rcOwner.top - dialogHeight) / 2;
 
@@ -370,7 +367,7 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
                     SaveDebugSettingsToRegistry();
                     EndDialog(hwnd, IDOK);
                     break;
-                case IDCANCEL: // Should not be strictly necessary if button is removed from .rc
+                case IDCANCEL: 
                     DebugPrint("SettingsDlgProc: IDCANCEL (from ESC or close) received.\n");
                     EndDialog(hwnd, IDCANCEL);
                     break;
@@ -387,8 +384,8 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
                 }
             }
             return (LRESULT)TRUE;
-        case WM_CLOSE: // Handles Alt+F4 or clicking the 'X'
-            EndDialog(hwnd, IDCANCEL); // Treat as cancel
+        case WM_CLOSE: 
+            EndDialog(hwnd, IDCANCEL); 
             return (LRESULT)TRUE;
     }
     return (LRESULT)FALSE;
@@ -425,8 +422,8 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
             }
 
             RECT textRect = {0, 0, 0, 0};
-            int minDialogWidth = 220; // Adjusted minimum width
-            int minTextWidthForCalc = minDialogWidth - 30; // Give some room for margins
+            int minDialogWidth = 220; 
+            int minTextWidthForCalc = minDialogWidth - 30; 
 
             textRect.right = minTextWidthForCalc; 
             DrawTextA(hdc, aboutTextBuffer, -1, &textRect, DT_CALCRECT | DT_WORDBREAK);
@@ -436,22 +433,21 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 
             TEXTMETRIC tm;
             GetTextMetrics(hdc, &tm);
-            int buttonHeight = tm.tmHeight + 12; // Increased padding
+            int buttonHeight = tm.tmHeight + 12; 
             
             SIZE okButtonSize;
             GetTextExtentPoint32A(hdc, okButtonBuffer, (int)strlen(okButtonBuffer), &okButtonSize);
-            int buttonWidth = okButtonSize.cx + 40; // Increased padding
+            int buttonWidth = okButtonSize.cx + 40; 
 
-            int margin = 15; // Increased margin
-            int spacing = 12; // Increased space between text and button
+            int margin = 15; 
+            int spacing = 12; 
 
             int contentWidth = (textWidth > buttonWidth) ? textWidth : buttonWidth;
             int dialogWidth = contentWidth + 2 * margin;
             if (dialogWidth < minDialogWidth) dialogWidth = minDialogWidth;
             
-            // Recalculate text height if dialog width is wider than initial calculation width
             if (dialogWidth > minTextWidthForCalc + 2 * margin) {
-                 textRect.right = dialogWidth - 2 * margin; // Use actual dialog width for text box
+                 textRect.right = dialogWidth - 2 * margin; 
                  DrawTextA(hdc, aboutTextBuffer, -1, &textRect, DT_CALCRECT | DT_WORDBREAK);
                  textHeight = textRect.bottom - textRect.top;
             }
@@ -483,13 +479,13 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
             return (LRESULT)TRUE;
         }
         case WM_COMMAND:
-            if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) { // IDCANCEL for ESC key
+            if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) { 
                 DebugPrint("AboutDlgProc: OK or Cancel received.\n");
                 EndDialog(hwnd, LOWORD(wParam));
             }
             return (LRESULT)TRUE;
-        case WM_CLOSE: // Handles Alt+F4 or clicking the 'X'
-            EndDialog(hwnd, IDCANCEL); // Treat as cancel
+        case WM_CLOSE: 
+            EndDialog(hwnd, IDCANCEL); 
             return (LRESULT)TRUE;
     }
     return (LRESULT)FALSE;
@@ -599,8 +595,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
             if (hMonoFont) SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
 
+            // Create Output Edit Control - REMOVED ES_READONLY
             hwndOutputEdit = CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, "",
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY, 
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | WS_TABSTOP, // Added WS_TABSTOP
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL);
             if (hMonoFont) SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
 
@@ -907,3 +904,4 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     DebugPrint("WinMain finished.\n");
     return (int)msg.wParam;
 }
+
