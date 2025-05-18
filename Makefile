@@ -3,7 +3,7 @@ PROGNAME	= bfinterpreter
 CC		= $(PREFIX)gcc
 RC		= $(PREFIX)windres
 LD		= $(CC)
-CFLAGS		= -Wall -Wextra -g -std=c11
+CFLAGS		= -Wall -Wextra -ggdb3 -O0 -std=c11
 LDFLAGS		= -mwindows -lcomctl32 -lgdi32 -luser32 -lkernel32 -lcomdlg32
 RM		= rm -f
 BINEXT		= .exe
