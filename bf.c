@@ -1,5 +1,4 @@
 #include "bf.h"
-#include <strsafe.h> // For StringCchPrintf
 
 // Global variables
 HINSTANCE hInst;
