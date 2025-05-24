@@ -1,23 +1,26 @@
 #ifndef BF_H
 #define BF_H
 
-// Target Windows 95 / NT 4.0 API level
+// Define to enable POSIX features like strdup. Must be before any system headers.
+#define _POSIX_C_SOURCE 200809L 
+
+// Target Windows 95 / NT 4.0 API level. Must be before windows.h.
 #define WINVER 0x0400
 #define _WIN32_WINNT 0x0400
 
 #define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
 #include <windowsx.h> // For GET_WM_COMMAND_ID
-#include <stdio.h>    // For vsprintf, sprintf (use with caution)
+#include <stdio.h>    // For vsprintf, sprintf (use with caution for buffer overflows)
 #include <stdlib.h>   // For malloc/free
 #include <string.h>   // For memset, strlen, strcpy, strncpy, strdup
-#include <wchar.h>    // For WEOF (though strsafe.h is removed, good to have for general wide char if ever needed)
 #include <commdlg.h>  // For OpenFileName
 #include <stdarg.h>   // For va_list, va_start, va_end
 #include <dlgs.h>     // Include this for dialog styles
 #include <commctrl.h> // Include for Common Control
 #include <winreg.h>   // Include for Registry functions
-// #include <strsafe.h> // Removed for Windows 95 compatibility
+// <wchar.h> and <strsafe.h> are intentionally omitted for strict ANSI/Win95.
 
 // Resource IDs - These will correspond to IDs in bf.rc
 // Menu IDs
