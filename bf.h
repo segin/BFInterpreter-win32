@@ -1,18 +1,23 @@
 #ifndef BF_H
 #define BF_H
 
+// Target Windows 95 / NT 4.0 API level
+#define WINVER 0x0400
+#define _WIN32_WINNT 0x0400
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <windowsx.h> // For GET_WM_COMMAND_ID
-#include <stdio.h>    // For sprintf_s (optional, mainly for debugging or error messages)
-#include <stdlib.h>   // For malloc/free, _strdup
-#include <string.h>   // For memset, strlen, strcpy, strtok_s, strncpy, strncat
+#include <stdio.h>    // For vsprintf, sprintf (use with caution)
+#include <stdlib.h>   // For malloc/free
+#include <string.h>   // For memset, strlen, strcpy, strncpy, strdup
+#include <wchar.h>    // For WEOF (though strsafe.h is removed, good to have for general wide char if ever needed)
 #include <commdlg.h>  // For OpenFileName
 #include <stdarg.h>   // For va_list, va_start, va_end
 #include <dlgs.h>     // Include this for dialog styles
 #include <commctrl.h> // Include for Common Control
 #include <winreg.h>   // Include for Registry functions
-#include <strsafe.h>  // For StringCchPrintf, StringCchCopyA etc.
+// #include <strsafe.h> // Removed for Windows 95 compatibility
 
 // Resource IDs - These will correspond to IDs in bf.rc
 // Menu IDs
@@ -30,7 +35,7 @@
 #define IDM_EDIT_SELECTALL  1011
 #define IDM_HELP_ABOUT      1012
 
-// Control IDs for Main Window (defined in bf.rc if using DIALOG for main window, otherwise manually created)
+// Control IDs for Main Window
 #define IDC_STATIC_CODE     2001
 #define IDC_EDIT_CODE       2002
 #define IDC_STATIC_INPUT    2003
@@ -42,19 +47,18 @@
 #define IDD_SETTINGS        3000
 #define IDD_ABOUT           4000
 
-// Control IDs for Settings Dialog (defined in bf.rc)
+// Control IDs for Settings Dialog
 #define IDC_CHECK_DEBUG_BASIC       3001
 #define IDC_CHECK_DEBUG_INTERPRETER 3002
 #define IDC_CHECK_DEBUG_OUTPUT      3003
-// IDOK and IDCANCEL are predefined (1 and 2)
 
-// Control IDs for About Dialog (defined in bf.rc)
+// Control IDs for About Dialog
 #define IDC_STATIC_ABOUT_TEXT 4001
 
 // Accelerator Table ID
 #define IDA_ACCELERATORS    5000
 
-// String Table IDs (defined in bf.rc)
+// String Table IDs
 #define IDS_APP_TITLE                   1
 #define IDS_CODE_LABEL                  2
 #define IDS_INPUT_LABEL                 3
@@ -102,9 +106,8 @@
 #define IDS_EDIT_SELECTALL_MENU         45
 #define IDS_HELP_ABOUT_MENU             46
 
-
-// Manifest ID (for linking via resource file)
-#define IDR_MANIFEST 1 // CREATEPROCESS_MANIFEST_RESOURCE_ID is 1 for RT_MANIFEST
+// Manifest ID
+#define IDR_MANIFEST 1
 
 // --- Custom Messages for Thread Communication ---
 #define WM_APP_INTERPRETER_OUTPUT_STRING (WM_APP + 2)
@@ -113,7 +116,7 @@
 // --- Constants ---
 #define TAPE_SIZE           65536
 #define OUTPUT_BUFFER_SIZE  1024
-#define MAX_STRING_LENGTH   512 // For loading strings from resource
+#define MAX_STRING_LENGTH   512
 
 // Registry Constants
 #define REG_COMPANY_KEY_ANSI "Software\\Talamar Developments"
@@ -155,22 +158,17 @@ typedef struct {
     int output_buffer_pos;
 } InterpreterParams;
 
-
 // Function Prototypes
-
-// Window Procedures
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-// Helper Functions
 void DebugPrint(const char* format, ...);
 void DebugPrintInterpreter(const char* format, ...);
 void DebugPrintOutput(const char* format, ...);
 void AppendTextToEditControl(HWND hwndEdit, const char* newText); 
 char* LoadStringFromResource(UINT uID, char* buffer, int bufferSize); 
 
-// Tape Functions
 void Tape_init(Tape* tape);
 unsigned char Tape_get(Tape* tape);
 void Tape_set(Tape* tape, unsigned char value);
@@ -179,18 +177,11 @@ void Tape_dec(Tape* tape);
 void Tape_forward(Tape* tape);
 void Tape_reverse(Tape* tape);
 
-// Interpreter Functions
 char* optimize_code(const char* code);
 DWORD WINAPI InterpretThreadProc(LPVOID lpParam);
 void SendBufferedOutput(InterpreterParams* params);
 
-// UI Functions (DialogBox is used directly, these are not strictly needed for modal dialogs from resources)
-// void ShowModalSettingsDialog(HWND hwndParent); 
-// void ShowModalAboutDialog(HWND hwndParent); 
-
-// Registry Functions
 void SaveDebugSettingsToRegistry(void);
 void LoadDebugSettingsFromRegistry(void);
 
 #endif // BF_H
-
