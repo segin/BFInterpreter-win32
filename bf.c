@@ -18,11 +18,12 @@ volatile BOOL g_bDebugBasic = TRUE;
 
 // Helper to load strings from resource, ensures null termination
 char* LoadStringFromResource(UINT uID, char* buffer, int bufferSize) {
-    if (LoadStringA(hInst, uID, buffer, bufferSize) > 0) {
+    if (LoadStringA(hInst, uID, buffer, bufferSize) > 0)
         return buffer;
-    }
     // Fallback or error string if LoadString fails
-    StringCchCopyA(buffer, bufferSize, "ErrorLoadingString");
+    // Using strncpy for safety, ensuring null termination.
+    strncpy(buffer, "ErrorLoadingString", bufferSize - 1);
+    buffer[bufferSize - 1] = '\0';
     return buffer;
 }
 
@@ -35,32 +36,37 @@ void AppendTextToEditControl(HWND hwndEdit, const char* newText) {
 }
 
 // Helper function for conditional debug output
+// WARNING: vsprintf is not bounds-checked. Use with extreme caution.
+// Ensure buffer is large enough for the expected output.
 void DebugPrint(const char* format, ...) {
-    if (!g_bDebugBasic) return;
-    char buffer[512];
+    if (!g_bDebugBasic)
+        return;
+    char buffer[512]; // Ensure this is large enough
     va_list args;
     va_start(args, format);
-    StringCchVPrintfA(buffer, sizeof(buffer), format, args);
+    vsprintf(buffer, format, args); // Replaced StringCchVPrintfA
     va_end(args);
     OutputDebugStringA(buffer);
 }
 
 void DebugPrintInterpreter(const char* format, ...) {
-    if (!g_bDebugBasic || !g_bDebugInterpreter) return;
-    char buffer[512];
+    if (!g_bDebugBasic || !g_bDebugInterpreter)
+        return;
+    char buffer[512]; // Ensure this is large enough
     va_list args;
     va_start(args, format);
-    StringCchVPrintfA(buffer, sizeof(buffer), format, args);
+    vsprintf(buffer, format, args); // Replaced StringCchVPrintfA
     va_end(args);
     OutputDebugStringA(buffer);
 }
 
 void DebugPrintOutput(const char* format, ...) {
-    if (!g_bDebugBasic || !g_bDebugOutput) return;
-    char buffer[512];
+    if (!g_bDebugBasic || !g_bDebugOutput)
+        return;
+    char buffer[512]; // Ensure this is large enough
     va_list args;
     va_start(args, format);
-    StringCchVPrintfA(buffer, sizeof(buffer), format, args);
+    vsprintf(buffer, format, args); // Replaced StringCchVPrintfA
     va_end(args);
     OutputDebugStringA(buffer);
 }
@@ -89,30 +95,28 @@ void Tape_dec(Tape* tape) {
 
 void Tape_forward(Tape* tape) {
     tape->position++;
-    if (tape->position >= TAPE_SIZE) {
+    if (tape->position >= TAPE_SIZE)
         tape->position = 0;
-    }
 }
 
 void Tape_reverse(Tape* tape) {
     tape->position--;
-    if (tape->position < 0) {
+    if (tape->position < 0)
         tape->position = TAPE_SIZE - 1;
-    }
 }
 
 // --- Interpreter Logic ---
 void SendBufferedOutput(InterpreterParams* params) {
     if (params->output_buffer_pos > 0) {
         params->output_buffer[params->output_buffer_pos] = '\0';
-        char* output_string = _strdup(params->output_buffer);
-        if (output_string) {
+        char* output_string = strdup(params->output_buffer); // Changed from _strdup
+        if (output_string)
             PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)output_string);
-        } else {
+        else {
             DebugPrint("SendBufferedOutput: Failed to duplicate output string.\n");
             char errorBuffer[MAX_STRING_LENGTH];
-            LoadStringFromResource(IDS_MEM_ERROR_PARAMS, errorBuffer, MAX_STRING_LENGTH); // Generic mem error
-            PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)_strdup(errorBuffer));
+            LoadStringFromResource(IDS_MEM_ERROR_PARAMS, errorBuffer, MAX_STRING_LENGTH); 
+            PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)strdup(errorBuffer)); // Changed from _strdup
         }
         params->output_buffer_pos = 0;
     }
@@ -121,9 +125,10 @@ void SendBufferedOutput(InterpreterParams* params) {
 char* optimize_code(const char* code) {
     size_t len = strlen(code);
     char* ocode = (char*)malloc(len + 1);
-    if (!ocode) return NULL;
+    if (!ocode)
+        return NULL;
     size_t ocode_len = 0;
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++) { 
         switch (code[i]) {
             case '>': case '<': case '+': case '-':
             case ',': case '.': case '[': case ']':
@@ -146,7 +151,7 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     if (!ocode) {
         DebugPrintInterpreter("InterpretThreadProc: Failed to optimize code (memory allocation).\n");
         LoadStringFromResource(IDS_MEM_ERROR_OPTIMIZE, strBuffer, MAX_STRING_LENGTH);
-        PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)_strdup(strBuffer));
+        PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)strdup(strBuffer)); // Changed from _strdup
         PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_DONE, 1, 0);
         free(params->code);
         free(params->input);
@@ -161,7 +166,7 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
     int error_status = 0;
 
     DebugPrintInterpreter("InterpretThreadProc: Starting main loop.\n");
-    while (pc < ocode_len && g_bInterpreterRunning && error_status == 0) {
+    while (pc < ocode_len && g_bInterpreterRunning && error_status == 0) { 
         char current_instruction = ocode[pc];
         DebugPrintInterpreter("PC: %zu, Instruction: %c\n", pc, current_instruction);
 
@@ -171,17 +176,16 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
             case '+': Tape_inc(&tape); pc++; break;
             case '-': Tape_dec(&tape); pc++; break;
             case ',':
-                if (params->input_pos < params->input_len) {
+                if (params->input_pos < params->input_len)
                     Tape_set(&tape, (unsigned char)params->input[params->input_pos++]);
-                } else {
+                else
                     Tape_set(&tape, 0);
-                }
                 pc++;
                 break;
             case '.':
-                if (params->output_buffer_pos < OUTPUT_BUFFER_SIZE - 1) {
+                if (params->output_buffer_pos < OUTPUT_BUFFER_SIZE - 1)
                     params->output_buffer[params->output_buffer_pos++] = Tape_get(&tape);
-                } else {
+                else {
                     SendBufferedOutput(params);
                     params->output_buffer[params->output_buffer_pos++] = Tape_get(&tape);
                 }
@@ -192,8 +196,10 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                     int bracket_count = 1;
                     size_t current_pc_loop = pc; 
                     while (bracket_count > 0 && ++current_pc_loop < ocode_len) {
-                        if (ocode[current_pc_loop] == '[') bracket_count++;
-                        else if (ocode[current_pc_loop] == ']') bracket_count--;
+                        if (ocode[current_pc_loop] == '[')
+                            bracket_count++;
+                        else if (ocode[current_pc_loop] == ']')
+                            bracket_count--;
                     }
                     if (current_pc_loop >= ocode_len) {
                         error_status = 1;
@@ -201,9 +207,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                     } else {
                         pc = current_pc_loop + 1;
                     }
-                } else {
+                } else
                     pc++;
-                }
                 break;
             case ']':
                 if (Tape_get(&tape) != 0) {
@@ -216,8 +221,10 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                             break;
                         }
                         current_pc_loop--; 
-                        if (ocode[current_pc_loop] == ']') bracket_count++;
-                        else if (ocode[current_pc_loop] == '[') bracket_count--;
+                        if (ocode[current_pc_loop] == ']')
+                            bracket_count++;
+                        else if (ocode[current_pc_loop] == '[')
+                            bracket_count--;
                     }
                      if (error_status == 0 && bracket_count != 0) { 
                          error_status = 1;
@@ -225,9 +232,8 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
                      } else if (error_status == 0) {
                         pc = current_pc_loop; 
                      }
-                } else {
+                } else
                     pc++;
-                }
                 break;
         }
         if (!g_bInterpreterRunning) {
@@ -238,12 +244,10 @@ DWORD WINAPI InterpretThreadProc(LPVOID lpParam) {
 
     SendBufferedOutput(params);
 
-    if (error_status == 1) {
-        LoadStringFromResource(IDS_MISMATCHED_BRACKETS, strBuffer, MAX_STRING_LENGTH);
-        PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)_strdup(strBuffer));
-    } else if (g_bInterpreterRunning) {
+    if (error_status == 1)
+        PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_OUTPUT_STRING, 0, (LPARAM)strdup(LoadStringFromResource(IDS_MISMATCHED_BRACKETS, strBuffer, MAX_STRING_LENGTH))); // Changed from _strdup
+    else if (g_bInterpreterRunning)
         DebugPrintInterpreter("InterpretThreadProc: Interpretation finished successfully.\n");
-    }
 
     PostMessage(params->hwndMainWindow, WM_APP_INTERPRETER_DONE, error_status, 0);
     free(ocode);
@@ -262,7 +266,7 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     char strBuffer[MAX_STRING_LENGTH];
     switch (uMsg) {
         case WM_INITDIALOG:
-        {
+        { 
             DebugPrint("SettingsDlgProc: WM_INITDIALOG received.\n");
 
             HWND hCheckBasic = GetDlgItem(hwnd, IDC_CHECK_DEBUG_BASIC);
@@ -286,13 +290,11 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             HDC hdc = GetDC(hwnd);
             HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
             HFONT hOldFont = NULL;
-            if (hFont) {
+            if (hFont)
                 hOldFont = (HFONT)SelectObject(hdc, hFont);
-            }
 
             TEXTMETRIC tm;
             GetTextMetrics(hdc, &tm);
-            // More generous padding for controls
             int checkboxHeight = tm.tmHeight + tm.tmExternalLeading + 8; 
             int buttonHeight = tm.tmHeight + tm.tmExternalLeading + 14; 
             SIZE size;
@@ -310,17 +312,16 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             GetTextExtentPoint32A(hdc, strBuffer, (int)strlen(strBuffer), &size);
             if (size.cx > maxCheckboxTextWidth) maxCheckboxTextWidth = size.cx;
 
-            int checkboxControlWidth = maxCheckboxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + 25; // Checkbox visual + text padding
+            int checkboxControlWidth = maxCheckboxTextWidth + GetSystemMetrics(SM_CXMENUCHECK) + 25; 
 
             GetWindowTextA(hOkButton, strBuffer, MAX_STRING_LENGTH);
             GetTextExtentPoint32A(hdc, strBuffer, (int)strlen(strBuffer), &size);
-            int okButtonWidth = size.cx + 50; // Generous button padding
+            int okButtonWidth = size.cx + 50; 
 
-            // Define layout constants
-            const int DLG_MARGIN = 15;              // Margin around the dialog content
-            const int CHECKBOX_V_SPACING = 10;      // Vertical space between checkboxes
-            const int CONTROLS_BUTTON_GAP = 20;   // Space between last control and button(s)
-            const int BUTTON_BOTTOM_MARGIN = 15;    // Margin below the button(s)
+            const int DLG_MARGIN = 15;              
+            const int CHECKBOX_V_SPACING = 10;      
+            const int CONTROLS_BUTTON_GAP = 20;   
+            const int BUTTON_BOTTOM_MARGIN = 15;    
 
             int currentY = DLG_MARGIN;
 
@@ -330,15 +331,15 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             currentY += checkboxHeight + CHECKBOX_V_SPACING;
             SetWindowPos(hCheckOutput, NULL, DLG_MARGIN, currentY, checkboxControlWidth, checkboxHeight, SWP_NOZORDER);
             
-            currentY += checkboxHeight; // Add height of last checkbox
-            currentY += CONTROLS_BUTTON_GAP; // Add gap before button
+            currentY += checkboxHeight; 
+            currentY += CONTROLS_BUTTON_GAP; 
 
             int buttonStartX = (checkboxControlWidth + 2 * DLG_MARGIN - okButtonWidth) / 2;
             if (buttonStartX < DLG_MARGIN) buttonStartX = DLG_MARGIN;
 
             SetWindowPos(hOkButton, NULL, buttonStartX, currentY, okButtonWidth, buttonHeight, SWP_NOZORDER);
-            currentY += buttonHeight; // Add button height
-            currentY += BUTTON_BOTTOM_MARGIN; // Add final bottom margin
+            currentY += buttonHeight; 
+            currentY += BUTTON_BOTTOM_MARGIN; 
 
             int dialogWidth = checkboxControlWidth + 2 * DLG_MARGIN;
             int dialogHeight = currentY;
@@ -352,9 +353,8 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
             SetWindowPos(hwnd, HWND_TOP, newX, newY, dialogWidth, dialogHeight, SWP_SHOWWINDOW);
 
-            if (hOldFont) {
+            if (hOldFont)
                 SelectObject(hdc, hOldFont);
-            }
             ReleaseDC(hwnd, hdc);
             return (LRESULT)TRUE;
         }
@@ -378,7 +378,7 @@ LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
                     EndDialog(hwnd, IDCANCEL);
                     break;
                 case IDC_CHECK_DEBUG_BASIC:
-                {
+                { 
                     BOOL bBasicChecked = IsDlgButtonChecked(hwnd, IDC_CHECK_DEBUG_BASIC) == BST_CHECKED;
                     EnableWindow(GetDlgItem(hwnd, IDC_CHECK_DEBUG_INTERPRETER), bBasicChecked);
                     EnableWindow(GetDlgItem(hwnd, IDC_CHECK_DEBUG_OUTPUT), bBasicChecked);
@@ -406,7 +406,7 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 
     switch (uMsg) {
         case WM_INITDIALOG:
-        {
+        { 
             DebugPrint("AboutDlgProc: WM_INITDIALOG received.\n");
             
             HWND hStaticText = GetDlgItem(hwnd, IDC_STATIC_ABOUT_TEXT);
@@ -423,44 +423,38 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
             HDC hdc = GetDC(hwnd);
             HFONT hFont = (HFONT)SendMessage(hStaticText, WM_GETFONT, 0, 0); 
             HFONT hOldFont = NULL;
-            if (hFont) {
+            if (hFont)
                 hOldFont = (HFONT)SelectObject(hdc, hFont);
-            }
 
             RECT textRect = {0, 0, 0, 0};
-            // Use a wider initial calculation width for DrawText to get a more stable textWidth
-            int calcTextRectWidth = 300; // A reasonably wide value for initial calculation
+            int calcTextRectWidth = 300; 
             textRect.right = calcTextRectWidth; 
             DrawTextA(hdc, aboutTextBuffer, -1, &textRect, DT_CALCRECT | DT_WORDBREAK);
             
             int textHeight = textRect.bottom - textRect.top;
-            int textWidth = textRect.right - textRect.left; // Actual width of the text block
+            int textWidth = textRect.right - textRect.left; 
 
             TEXTMETRIC tm;
             GetTextMetrics(hdc, &tm);
-            int buttonHeight = tm.tmHeight + tm.tmExternalLeading + 14; // Generous button height
+            int buttonHeight = tm.tmHeight + tm.tmExternalLeading + 14; 
             
             SIZE okButtonSize;
             GetTextExtentPoint32A(hdc, okButtonBuffer, (int)strlen(okButtonBuffer), &okButtonSize);
-            int buttonWidth = okButtonSize.cx + 50; // Generous button width padding
+            int buttonWidth = okButtonSize.cx + 50; 
 
-            // Define layout constants
-            const int DLG_MARGIN = 20;              // Margin around the dialog content
-            const int TEXT_BUTTON_GAP = 15;       // Space between text and button
-            const int BUTTON_BOTTOM_MARGIN = 20;    // Margin below the button
+            const int DLG_MARGIN = 20;              
+            const int TEXT_BUTTON_GAP = 15;       
+            const int BUTTON_BOTTOM_MARGIN = 20;    
 
-            // Determine dialog width
             int contentWidth = (textWidth > buttonWidth) ? textWidth : buttonWidth;
             int dialogWidth = contentWidth + 2 * DLG_MARGIN;
-            int minDialogWidth = 250; // Ensure dialog isn't too narrow
-            if (dialogWidth < minDialogWidth) dialogWidth = minDialogWidth;
+            int minDialogWidth = 250; 
+            if (dialogWidth < minDialogWidth)
+                dialogWidth = minDialogWidth;
             
-            // Recalculate text height if dialog width changed for word wrapping
-            // This ensures the text control has the final dialog width to wrap correctly
             RECT finalTextRect = {0,0, dialogWidth - 2 * DLG_MARGIN, 0};
             DrawTextA(hdc, aboutTextBuffer, -1, &finalTextRect, DT_CALCRECT | DT_WORDBREAK);
             textHeight = finalTextRect.bottom - finalTextRect.top;
-
 
             int currentY = DLG_MARGIN;
             SetWindowPos(hStaticText, NULL, DLG_MARGIN, currentY, dialogWidth - 2 * DLG_MARGIN, textHeight, SWP_NOZORDER);
@@ -483,17 +477,14 @@ LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 
             SetWindowPos(hwnd, HWND_TOP, newX, newY, dialogWidth, dialogHeight, SWP_SHOWWINDOW);
 
-            if (hOldFont) {
+            if (hOldFont)
                 SelectObject(hdc, hOldFont);
-            }
             ReleaseDC(hwnd, hdc);
             return (LRESULT)TRUE;
         }
         case WM_COMMAND:
-            if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) { 
-                DebugPrint("AboutDlgProc: OK or Cancel received.\n");
+            if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
                 EndDialog(hwnd, LOWORD(wParam));
-            }
             return (LRESULT)TRUE;
         case WM_CLOSE: 
             EndDialog(hwnd, IDCANCEL); 
@@ -536,17 +527,14 @@ void LoadDebugSettingsFromRegistry() {
     }
 
     dwSize = sizeof(dwValue);
-    if (RegQueryValueExA(hKey, REG_VALUE_DEBUG_BASIC_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize) == ERROR_SUCCESS && dwType == REG_DWORD) {
+    if (RegQueryValueExA(hKey, REG_VALUE_DEBUG_BASIC_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize) == ERROR_SUCCESS && dwType == REG_DWORD)
         g_bDebugBasic = (dwValue != 0);
-    }
     dwSize = sizeof(dwValue);
-    if (RegQueryValueExA(hKey, REG_VALUE_DEBUG_INTERPRETER_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize) == ERROR_SUCCESS && dwType == REG_DWORD) {
+    if (RegQueryValueExA(hKey, REG_VALUE_DEBUG_INTERPRETER_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize) == ERROR_SUCCESS && dwType == REG_DWORD)
         g_bDebugInterpreter = (dwValue != 0);
-    }
     dwSize = sizeof(dwValue);
-    if (RegQueryValueExA(hKey, REG_VALUE_DEBUG_OUTPUT_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize) == ERROR_SUCCESS && dwType == REG_DWORD) {
+    if (RegQueryValueExA(hKey, REG_VALUE_DEBUG_OUTPUT_ANSI, NULL, &dwType, (LPBYTE)&dwValue, &dwSize) == ERROR_SUCCESS && dwType == REG_DWORD)
         g_bDebugOutput = (dwValue != 0);
-    }
 
     if (!g_bDebugBasic) {
         g_bDebugInterpreter = FALSE;
@@ -564,14 +552,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
     switch (uMsg) {
         case WM_CREATE:
-        {
+        { 
             DebugPrint("WM_CREATE received.\n");
             hMonoFont = CreateFontA(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
                                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
                                    FIXED_PITCH | FF_MODERN, "Courier New");
-            if (hMonoFont == NULL) {
+            if (hMonoFont == NULL)
                 MessageBoxA(hwnd, LoadStringFromResource(IDS_FONT_ERROR, strBuffer, MAX_STRING_LENGTH), "Font Error", MB_OK | MB_ICONWARNING);
-            }
 
             NONCLIENTMETRICSA ncm = {0}; 
             ncm.cbSize = sizeof(NONCLIENTMETRICSA); 
@@ -583,33 +570,38 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 DebugPrint("WM_CREATE: SystemParametersInfoA for NONCLIENTMETRICS failed. Using default GUI font for labels.\n");
             }
 
-
             HWND hStaticCode = CreateWindowA(WC_STATICA, LoadStringFromResource(IDS_CODE_LABEL, strBuffer, MAX_STRING_LENGTH), WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP,
                           10, 10, 100, 20, hwnd, (HMENU)IDC_STATIC_CODE, hInst, NULL);
-            if (hLabelFont) SendMessageA(hStaticCode, WM_SETFONT, (WPARAM)hLabelFont, TRUE);
+            if (hLabelFont)
+                SendMessageA(hStaticCode, WM_SETFONT, (WPARAM)hLabelFont, TRUE);
 
             HWND hStaticInput = CreateWindowA(WC_STATICA, LoadStringFromResource(IDS_INPUT_LABEL, strBuffer, MAX_STRING_LENGTH), WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP,
                           10, 170, 150, 20, hwnd, (HMENU)IDC_STATIC_INPUT, hInst, NULL);
-            if (hLabelFont) SendMessageA(hStaticInput, WM_SETFONT, (WPARAM)hLabelFont, TRUE);
+            if (hLabelFont)
+                SendMessageA(hStaticInput, WM_SETFONT, (WPARAM)hLabelFont, TRUE);
 
             HWND hStaticOutput = CreateWindowA(WC_STATICA, LoadStringFromResource(IDS_OUTPUT_LABEL, strBuffer, MAX_STRING_LENGTH), WS_CHILD | WS_VISIBLE | SS_LEFTNOWORDWRAP,
                           10, 300, 150, 20, hwnd, (HMENU)IDC_STATIC_OUTPUT, hInst, NULL);
-            if (hLabelFont) SendMessageA(hStaticOutput, WM_SETFONT, (WPARAM)hLabelFont, TRUE);
+            if (hLabelFont)
+                SendMessageA(hStaticOutput, WM_SETFONT, (WPARAM)hLabelFont, TRUE);
 
             hwndCodeEdit = CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 35, 560, 125, hwnd, (HMENU)IDC_EDIT_CODE, hInst, NULL);
-            if (hMonoFont) SendMessageA(hwndCodeEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
+            if (hMonoFont)
+                SendMessageA(hwndCodeEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
 
             hwndInputEdit = CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_TABSTOP,
                 10, 195, 560, 95, hwnd, (HMENU)IDC_EDIT_INPUT, hInst, NULL);
-            if (hMonoFont) SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
+            if (hMonoFont)
+                SendMessageA(hwndInputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
 
             hwndOutputEdit = CreateWindowExA(WS_EX_CLIENTEDGE, WC_EDITA, "",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | WS_TABSTOP, 
                 10, 325, 560, 150, hwnd, (HMENU)IDC_EDIT_OUTPUT, hInst, NULL);
-            if (hMonoFont) SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
+            if (hMonoFont)
+                SendMessageA(hwndOutputEdit, WM_SETFONT, (WPARAM)hMonoFont, TRUE);
 
             SetWindowTextA(hwndCodeEdit, LoadStringFromResource(IDS_DEFAULT_CODE, strBuffer, MAX_STRING_LENGTH));
             SetWindowTextA(hwndInputEdit, LoadStringFromResource(IDS_DEFAULT_INPUT, strBuffer, MAX_STRING_LENGTH));
@@ -618,7 +610,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             break;
         }
         case WM_SIZE:
-        {
+        { 
             int width = LOWORD(lParam);
             int height = HIWORD(lParam);
             int margin = 10, labelHeight = 20, editTopMargin = 5, spacing = 10, minEditHeight = 30;
@@ -627,26 +619,29 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             MoveWindow(GetDlgItem(hwnd, IDC_STATIC_CODE), margin, currentY, width - 2 * margin, labelHeight, TRUE);
             currentY += labelHeight + editTopMargin;
             int codeEditHeight = height / 4;
-            if (codeEditHeight < minEditHeight) codeEditHeight = minEditHeight;
+            if (codeEditHeight < minEditHeight)
+                codeEditHeight = minEditHeight;
             MoveWindow(hwndCodeEdit, margin, currentY, width - 2 * margin, codeEditHeight, TRUE);
             currentY += codeEditHeight + spacing;
 
             MoveWindow(GetDlgItem(hwnd, IDC_STATIC_INPUT), margin, currentY, width - 2 * margin, labelHeight, TRUE);
             currentY += labelHeight + editTopMargin;
             int inputEditHeight = height / 6;
-            if (inputEditHeight < minEditHeight) inputEditHeight = minEditHeight;
+            if (inputEditHeight < minEditHeight)
+                inputEditHeight = minEditHeight;
             MoveWindow(hwndInputEdit, margin, currentY, width - 2 * margin, inputEditHeight, TRUE);
             currentY += inputEditHeight + spacing;
 
             MoveWindow(GetDlgItem(hwnd, IDC_STATIC_OUTPUT), margin, currentY, width - 2 * margin, labelHeight, TRUE);
             currentY += labelHeight + editTopMargin;
             int outputEditHeight = height - currentY - margin;
-            if (outputEditHeight < minEditHeight) outputEditHeight = minEditHeight;
+            if (outputEditHeight < minEditHeight)
+                outputEditHeight = minEditHeight;
             MoveWindow(hwndOutputEdit, margin, currentY, width - 2 * margin, outputEditHeight, TRUE); 
             break;
         }
         case WM_COMMAND:
-        {
+        { 
             int wmId = LOWORD(wParam);
             switch (wmId) {
                 case IDM_FILE_NEW:
@@ -656,7 +651,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                     SetFocus(hwndCodeEdit);
                     break;
                 case IDM_FILE_OPEN:
-                {
+                { 
                     OPENFILENAMEA ofn = {0};
                     ofn.lStructSize = sizeof(ofn);
                     ofn.hwndOwner = hwnd;
@@ -679,20 +674,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                                     if (ReadFile(hFile, pFileContent, fileSize, &bytesRead, NULL)) {
                                         pFileContent[bytesRead] = '\0';
                                         SetWindowTextA(hwndCodeEdit, pFileContent);
-                                    } else {
+                                    } else
                                          MessageBoxA(hwnd, "Error reading file.", "File Error", MB_OK | MB_ICONERROR);
-                                    }
                                     free(pFileContent);
-                                } else {
+                                } else
                                     MessageBoxA(hwnd, LoadStringFromResource(IDS_MEM_ERROR_CODE, strBuffer, MAX_STRING_LENGTH), "Memory Error", MB_OK | MB_ICONERROR);
-                                }
-                            } else {
+                            } else
                                  MessageBoxA(hwnd, "File too large or error getting size.", "File Error", MB_OK | MB_ICONERROR);
-                            }
                             CloseHandle(hFile);
-                        } else {
+                        } else
                             MessageBoxA(hwnd, "Error opening file.", "File Error", MB_OK | MB_ICONERROR);
-                        }
                     }
                     break;
                 }
@@ -700,7 +691,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                     DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS), hwnd, SettingsDlgProc);
                     break;
                 case IDM_FILE_RUN:
-                {
+                { 
                     if (!g_bInterpreterRunning) {
                         SetWindowTextA(hwndOutputEdit, ""); 
                         int code_len = GetWindowTextLengthA(hwndCodeEdit);
@@ -744,7 +735,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                     break;
                 }
                 case IDM_FILE_COPYOUTPUT:
-                {
+                { 
                     int textLen = GetWindowTextLengthA(hwndOutputEdit);
                     if (textLen > 0) {
                         HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, textLen + 1);
@@ -759,16 +750,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                                     CloseClipboard();
                                     MessageBoxA(hwnd, LoadStringFromResource(IDS_COPIED_TO_CLIPBOARD, strBuffer, MAX_STRING_LENGTH), LoadStringFromResource(IDS_APP_TITLE, strBuffer, MAX_STRING_LENGTH), MB_OK | MB_ICONINFORMATION);
                                     hGlobal = NULL; 
-                                } else {
+                                } else
                                      MessageBoxA(hwnd, LoadStringFromResource(IDS_CLIPBOARD_OPEN_ERROR, strBuffer, MAX_STRING_LENGTH), "Error", MB_OK | MB_ICONERROR);
-                                }
-                            } else {
+                            } else
                                 MessageBoxA(hwnd, LoadStringFromResource(IDS_CLIPBOARD_MEM_LOCK_ERROR, strBuffer, MAX_STRING_LENGTH), "Error", MB_OK | MB_ICONERROR);
-                            }
-                            if (hGlobal) GlobalFree(hGlobal);
-                        } else {
+                            if (hGlobal)
+                                GlobalFree(hGlobal);
+                        } else
                             MessageBoxA(hwnd, LoadStringFromResource(IDS_CLIPBOARD_MEM_ALLOC_ERROR, strBuffer, MAX_STRING_LENGTH), "Error", MB_OK | MB_ICONERROR);
-                        }
                     }
                     break;
                 }
@@ -784,9 +773,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 case IDM_EDIT_SELECTALL:
                 {
                     HWND hFocused = GetFocus();
-                    if (hFocused == hwndCodeEdit || hFocused == hwndInputEdit || hFocused == hwndOutputEdit) {
+                    if (hFocused == hwndCodeEdit || hFocused == hwndInputEdit || hFocused == hwndOutputEdit)
                         SendMessage(hFocused, EM_SETSEL, 0, -1);
-                    }
                     break;
                 }
                 case IDM_HELP_ABOUT:
@@ -798,13 +786,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             break;
         }
         case WM_CTLCOLORSTATIC:
-        {
-             HDC hdcStatic = (HDC)wParam;
-             SetBkMode(hdcStatic, TRANSPARENT);
              return (LRESULT)GetStockObject(NULL_BRUSH);
-        }
         case WM_APP_INTERPRETER_OUTPUT_STRING:
-        {
+        { 
             DebugPrintOutput("WM_APP_INTERPRETER_OUTPUT_STRING received.\n");
             LPCSTR szString = (LPCSTR)lParam;
             if (szString) {
@@ -822,9 +806,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                     *p_out = '\0';
                     AppendTextToEditControl(hwndOutputEdit, converted_string);
                     free(converted_string);
-                } else {
+                } else
                      AppendTextToEditControl(hwndOutputEdit, "\r\nError: Mem alloc for output conversion failed.\r\n");
-                }
                 free((void*)lParam); 
             }
             SendMessageA(hwndOutputEdit, EM_SCROLLCARET, 0, 0); 
@@ -840,8 +823,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         case WM_DESTROY:
             DebugPrint("WM_DESTROY received.\n");
             g_bInterpreterRunning = FALSE; 
-            if (hMonoFont) DeleteObject(hMonoFont);
-            if (hLabelFont) DeleteObject(hLabelFont);
+            if (hMonoFont)
+                DeleteObject(hMonoFont);
+            if (hLabelFont)
+                DeleteObject(hLabelFont);
             PostQuitMessage(0);
             break;
         default:
@@ -886,9 +871,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDA_ACCELERATORS));
-    if (hAccelTable == NULL) {
+    if (hAccelTable == NULL)
         DebugPrint("WinMain: Failed to load accelerator table.\n");
-    }
 
     HWND hwnd = CreateWindowExA(0, MAIN_WINDOW_CLASS_NAME, LoadStringFromResource(IDS_APP_TITLE, strBuffer, MAX_STRING_LENGTH),
                               WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 550,
@@ -910,7 +894,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
     }
 
-    if (hAccelTable) DestroyAcceleratorTable(hAccelTable);
+    if (hAccelTable)
+        DestroyAcceleratorTable(hAccelTable);
     DebugPrint("WinMain finished.\n");
     return (int)msg.wParam;
 }
